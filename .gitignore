@@ -1,0 +1,14 @@
+# Python / Backend
+backend/venv/
+__pycache__/
+*.pyc
+
+# Node / Frontend
+frontend/node_modules/
+frontend/.next/
+
+# Environment Variables (Keep secrets safe!)
+.env
+
+# OS Files
+.DS_Store

@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # 1. TimescaleDB (PostgreSQL optimised for time-series data like mood tracking)
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: moodmap_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=moodmap
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # 2. Redis (Used by Celery to queue up background tasks like AI analysis)
+  redis:
+    image: redis:7-alpine
+    container_name: moodmap_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # 3. MLflow (Tracks your machine learning model metrics)
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.11.3
+    container_name: moodmap_mlflow
+    command: mlflow server --host 0.0.0.0 --port 5000
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+# This ensures database doesn't get wiped every time docker is turned off
+volumes:
+  timescaledb_data:
