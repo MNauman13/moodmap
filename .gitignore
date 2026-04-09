@@ -1,3 +1,5 @@
+.gitignore
+
 # Python / Backend
 backend/venv/
 __pycache__/
