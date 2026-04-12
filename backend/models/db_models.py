@@ -1,6 +1,7 @@
 import uuid
+import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Float, Boolean, Integer, DateTime, ForeignKey, Text, CheckConstraint
+from sqlalchemy import Column, String, Float, Boolean, Integer, DateTime, ForeignKey, Text, CheckConstraint, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -8,6 +9,13 @@ Base = declarative_base()
 
 def utc_now():
     return datetime.now(timezone.utc)
+
+class AnalysisStatus(str, enum.Enum):
+    PENDING = "pending"
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 class UserProfile(Base):
     __tablename__ = 'user_profiles'
@@ -31,8 +39,10 @@ class JournalEntry(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey('user_profiles.id', ondelete='CASCADE'), index=True)
     raw_text = Column(Text, nullable=False)
-    audio_url = Column(String, nullable=True)
+    audio_key = Column(String, nullable=True)
     word_count = Column(Integer)
+    mood_tags = Column(JSONB, default=list)
+    status = Column(SAEnum(AnalysisStatus, name='analysis_status'), default=AnalysisStatus.PENDING)
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
     # Relationships
