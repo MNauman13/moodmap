@@ -5,14 +5,20 @@ Broker: Redis  |  Backend: Redis  |  Workers pick up tasks from 'moodmap' queue
 
 import os
 from celery import Celery
+from dotenv import load_dotenv
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+# Force load the .env file
+load_dotenv()
+
+# Get the Redis URL from the .env file
+broker_url = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 
 celery_app = Celery(
     "moodmap",
-    broker = REDIS_URL,
-    backend = REDIS_URL,
-    include = ["backend.tasks.analysis"]
+    broker=broker_url,
+    backend=result_backend,
+    include=["backend.tasks.analysis"]
 )
 
 celery_app.conf.update(
