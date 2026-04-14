@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from backend.routers import user, journal, insights
+from backend.routers import user, journal, insights, nudges
 
 app = FastAPI(title="MoodMap API")
 
@@ -7,6 +7,7 @@ app = FastAPI(title="MoodMap API")
 app.include_router(user.router)
 app.include_router(journal.router)
 app.include_router(insights.router)
+app.include_router(nudges.router)
 
 @app.get("/")
 def read_root():

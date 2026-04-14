@@ -1,4 +1,5 @@
 import os
+import random
 import logging
 import numpy as np
 from typing import TypedDict, List, Dict
@@ -8,7 +9,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from datetime import datetime, timedelta, timezone
 from backend.database import SyncSessionLocal
-from backend.models.db_models import MoodScore, Nudge, UserProfile
+from backend.models.db_models import MoodScore, Nudge, UserProfile, AgentState as DBAgentState
 from backend.services.email import send_nudge_email
 
 logger = logging.getLogger(__name__)
@@ -122,37 +123,53 @@ def fetch_history(state: AgentState) -> dict:
     return {"mood_history": history}
 
 
-# 5. The LLM Node
+# 5. The LLM Node - With Continual Learning
 def generate_nudge(state: AgentState) -> dict:
-    """Uses Claude to write a highly personalised, empathetic nudge"""
-    logger.info("Distress detected! Generating nudge with Claude...")
+    """Uses Claude to write a highly personalized, empathetic nudge based on user preferences."""
+    logger.info("Distress detected! Determining intervention type...")
+    
+    # 1. Fetch the user's custom learning weights from the database
+    with SyncSessionLocal() as db:
+        user_state = db.query(DBAgentState).filter(DBAgentState.user_id == state['user_id']).first()
+        
+        # If they have weights, use them. Otherwise, default to an equal 20% split
+        weights_dict = user_state.intervention_weights if user_state and user_state.intervention_weights else {
+            "breathing": 0.2, "cbt": 0.2, "physical": 0.2, "social": 0.2, "referral": 0.2
+        }
 
-    # Initialise Claude
+    # 2. Pick the intervention type using Weighted Probability!
+    # If they gave "breathing" a thumbs up yesterday, it is mathematically more likely to be picked today.
+    nudge_type = random.choices(
+        population=list(weights_dict.keys()),
+        weights=list(weights_dict.values()),
+        k=1
+    )[0]
+    
+    logger.info(f"Agent selected intervention strategy: {nudge_type.upper()}")
+
+    # 3. Initialize Claude
     llm = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.7)
-
-    # Prompt Structure
+    
+    # 4. We update the prompt to explicitly force Claude to use the chosen strategy!
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a compassionate mental wellness companion trained in CBT techniques. "
+        ("system", "You are a compassionate mental wellness companion. "
                    "Never diagnose. Always validate. Suggest, don't prescribe. "
                    "Keep your response to exactly 3 warm, specific sentences containing one actionable suggestion."),
         ("user", "Here is the user's recent emotional data:\n"
                  "Mood History (last 7 days): {history}\n"
                  "Trajectory Math: {trajectory}\n\n"
-                 "Write a supportive nudge for this user.")
+                 "Write a supportive nudge for this user. "
+                 "CRITICAL: The actionable suggestion MUST be a '{nudge_type}' exercise.") # <--- Claude will follow this rule
     ])
-
-    # Connect the prompt to the LLM
+    
     chain = prompt | llm
-
-    # Run Claude
+    
     response = chain.invoke({
         "history": state["mood_history"],
-        "trajectory": state["trajectory"]
+        "trajectory": state["trajectory"],
+        "nudge_type": nudge_type
     })
-
-    # Decide the type of nudge based on the severity of the slope
-    nudge_type = "cbt" if state["trajectory"]["slope"] < -0.2 else "breathing"
-
+    
     return {
         "nudge_content": response.content,
         "nudge_type": nudge_type
