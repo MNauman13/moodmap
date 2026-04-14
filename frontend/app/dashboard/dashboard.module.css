@@ -1,0 +1,85 @@
+/* dashboard.module.css
+   Scoped to the dashboard page.
+   Contains ONLY what Tailwind utility classes cannot express:
+   - @keyframe animations
+   - Recharts SVG overrides (third-party elements, not in our JSX)
+   - Pseudo-element ::after on section titles
+   - statCell hover (needs :hover on a class that also carries Tailwind)
+   - entryRow animated left-border on hover
+*/
+
+/* ── Shimmer skeleton ────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+.shimmer {
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    #141210 0px,
+    #1e1c18 100px,
+    #141210 200px
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Score bar grow-in ───────────────────────────────────────── */
+@keyframes growWidth {
+  from { width: 0%; }
+}
+
+.scoreBarFill {
+  height: 100%;
+  border-radius: 1px;
+  animation: growWidth 1s ease forwards;
+}
+
+/* ── Section label ::after divider line ─────────────────────── */
+.sectionTitle::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #1a1815;
+}
+
+/* ── Stat cell hover ─────────────────────────────────────────── */
+.statCell:hover {
+  background: #141210;
+}
+
+/* ── Entry row animated left border ─────────────────────────── */
+.entryRow {
+  border-left: 2px solid transparent;
+  transition: border-color 0.2s ease, padding-left 0.2s ease;
+}
+.entryRow:hover {
+  border-left-color: #c8a96e;
+  padding-left: 0.75rem;
+}
+
+/* ── Recharts SVG overrides — can't target these with Tailwind ─ */
+.chartWrap :global(.recharts-cartesian-axis-tick text) {
+  fill: #4a4438 !important;
+  font-size: 11px !important;
+}
+.chartWrap :global(.recharts-reference-line line) {
+  stroke: #2a2720 !important;
+}
+.chartWrap :global(.recharts-tooltip-cursor) {
+  stroke: #2a2720 !important;
+  stroke-width: 1px !important;
+}
+
+/* ── Pie centre labels (rendered by Recharts as SVG <text>) ──── */
+.pieCenterLabel {
+  fill: #e8e4dc;
+  font-size: 14px;
+}
+.pieCenterPct {
+  fill: #c8a96e;
+  font-size: 20px;
+  font-weight: 500;
+}

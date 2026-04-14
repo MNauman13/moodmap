@@ -5,6 +5,7 @@ Broker: Redis  |  Backend: Redis  |  Workers pick up tasks from 'moodmap' queue
 
 import os
 from celery import Celery
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 # Force load the .env file
@@ -20,6 +21,15 @@ celery_app = Celery(
     backend=result_backend,
     include=["backend.tasks.analysis"]
 )
+
+# This tells Celery Beat what time to wake up
+celery_app.conf.beat_schedule = {
+    "run-agent-every-night": {
+        "task": "backend.tasks.schedules.run_nightly_agent_check",
+        # Runs every day at 20:00 UTC
+        "schedule": crontab(hour=20, minute=0)
+    }
+}
 
 celery_app.conf.update(
     task_serializer="json",
