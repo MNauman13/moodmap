@@ -8,7 +8,8 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from datetime import datetime, timedelta, timezone
 from backend.database import SyncSessionLocal
-from backend.models.db_models import MoodScore, Nudge
+from backend.models.db_models import MoodScore, Nudge, UserProfile
+from backend.services.email import send_nudge_email
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,7 @@ def send_nudge(state: AgentState) -> dict:
     logger.info("Saving nudge to database...")
 
     with SyncSessionLocal() as db:
+        # 1. Save to database
         new_nudge = Nudge(
             user_id = state['user_id'],
             nudge_type = state['nudge_type'],
@@ -171,6 +173,23 @@ def send_nudge(state: AgentState) -> dict:
             trigger_reason = f"Agent detected negative slope of {state['trajectory']['slope']:.2f}"
         )
         db.add(new_nudge)
+
+        # 2. Get the user's profile to find their name/email
+        # (Assuming 'username' is an email for now, based on standard Supabase setups)
+        user = db.query(UserProfile).filter(UserProfile.id == state['user_id'].first())
+
+        if user and user.username:
+            # Change "YOUR_RESEND_EMAIL@DOMAIN.COM" to the exact email you used to sign up for Resend!
+            # Since you are on the free tier, you can only send test emails to yourself.
+            target_email = "mnaumansiddiqui06@gmail.com" 
+            
+            # Fire the email!
+            send_nudge_email(
+                to_email=target_email,
+                username=user.username.split('@')[0].capitalize(), 
+                nudge_content=state['nudge_content']
+            )
+
         db.commit()
 
     return {}  # No state updates needed here
