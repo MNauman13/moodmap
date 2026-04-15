@@ -25,7 +25,7 @@ def update_intervention_weights(current_weights: dict, nudge_type: str, rating: 
     """
     # 1. Convert the -1, 0, 1 rating into a mathematical percentage
     if rating == 1:
-        rating_value = -1.0  # 100% Helpful
+        rating_value = 1.0  # 100% Helpful
     elif rating == -1:
         rating_value = 0.0   # 0% Helpful
     else:
