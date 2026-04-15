@@ -8,70 +8,87 @@ import { useState } from "react"
 export default function SignUp() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const router = useRouter()
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault()
         setError(null)
+        setIsLoading(true)
 
-        // 1. Send the email and password to Supabase
         const { data, error } = await supabase.auth.signUp({
             email,
             password
         })
 
-        // 2. If Supabase rejects it (e.g. password too short), show an error
+        setIsLoading(false)
+
         if (error) {
             setError(error.message)
             return
         }
 
-        // 3. If successful, send them to the login page
         if (data) {
             alert("Check your email for the confirmation link!")
-            router.push('login')
+            router.push('/login')
         }
     }
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-900">
-            <div className="w-full max-w-md rounded-lg bg-gray-800 p-8 shadow-lg">
-                <h2 className="mb-6 text-center text-3xl font-bold text-white">
-                    Join MoodMap
-                </h2>
-                {error && <p className="mb-4 text-sm text-red-500">{error}</p>}
+        <div className="flex min-h-screen items-center justify-center bg-[#0e0d0b] px-4 font-sans">
+            <div className="w-full max-w-md rounded-2xl border border-[#1a1815] bg-[#0c0b09] p-8 shadow-2xl">
+                
+                <div className="mb-8 text-center">
+                    <h2 className="font-['Lora'] text-3xl text-[#c8bfb0] mb-2">
+                        Join MoodMap
+                    </h2>
+                    <p className="text-[13px] font-light text-[#6b6357]">
+                        Start understanding your emotional landscape.
+                    </p>
+                </div>
+
+                {error && (
+                    <div className="mb-6 rounded-lg border border-[#8a2a2a]/30 bg-[#8a2a2a]/10 p-3 text-center text-[13px] text-[#e8a4a4]">
+                        {error}
+                    </div>
+                )}
+
                 <form onSubmit={handleSignUp} className="space-y-4">
                     <div>
                         <input 
                             type="email"
-                            placeholder="Email"
+                            placeholder="Email address"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full rounded border border-gray-600 bg-gray-700 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-lg border border-[#2a2720] bg-[#141210] p-3.5 text-[14px] text-[#e8e4dc] placeholder-[#4a4438] transition-all focus:border-[#c8a96e] focus:outline-none focus:ring-1 focus:ring-[#c8a96e]"
                             required
                         />
                     </div>
                     <div>
                         <input
                             type="password"
-                            placeholder="Password"
+                            placeholder="Create a password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full rounded border border-gray-600 bg-gray-700 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-lg border border-[#2a2720] bg-[#141210] p-3.5 text-[14px] text-[#e8e4dc] placeholder-[#4a4438] transition-all focus:border-[#c8a96e] focus:outline-none focus:ring-1 focus:ring-[#c8a96e]"
                             required
                         />
                     </div>
                     <button
                         type="submit"
-                        className="w-full rounded bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700"
+                        disabled={isLoading}
+                        className="mt-2 w-full rounded-lg bg-[#c8a96e] p-3.5 text-[14px] font-medium text-[#0e0d0b] transition-all hover:bg-[#b89b60] active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
                     >
-                        Sign Up
+                        {isLoading ? "Creating account..." : "Sign Up"}
                     </button>
                 </form>
 
-                <p className="mt-4 text-center text-sm text-gray-400">
-                    Already have an account? <Link href="/login" className="text-blue-400 hover:underline">Log in</Link>
+                <p className="mt-8 text-center text-[13px] text-[#6b6357]">
+                    Already have an account?{' '}
+                    <Link href="/login" className="text-[#c8a96e] transition-colors hover:text-[#e8e4dc] hover:underline underline-offset-4">
+                        Log in
+                    </Link>
                 </p>
             </div>
         </div>

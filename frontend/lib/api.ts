@@ -198,26 +198,27 @@ export async function uploadAudioToR2(audioBlob: Blob, fileExtension = "webm"): 
   return object_key;
 }
 
-/*
- * ── IMPORTANT: Missing route handler ─────────────────────────────────────────
- *
- * You have route handlers for /api/v1/journal and /api/v1/journal/presigned-url
- * but NOT for /api/v1/insights. You need to create:
- *
- *   frontend/app/api/v1/insights/route.ts
- *
- * Contents:
- *
- *   import { NextRequest, NextResponse } from "next/server";
- *   const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8000";
- *
- *   export async function GET(req: NextRequest) {
- *     const authHeader = req.headers.get("authorization");
- *     if (!authHeader) return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
- *     const backendRes = await fetch(`${BACKEND_URL}/api/v1/insights`, {
- *       headers: { "Authorization": authHeader },
- *     });
- *     const data = await backendRes.json();
- *     return NextResponse.json(data, { status: backendRes.status });
- *   }
- */
+// ── Nudges API Types ──────────────────────────────────────────
+
+export interface Nudge {
+  id: string;
+  user_id: string;
+  nudge_type: string;
+  content: string;
+  rating: number | null; // 1 for helpful, -1 for unhelpful, null for unrated
+  created_at: string;
+}
+
+// ── Nudges API Helpers ────────────────────────────────────────
+
+export const nudgesApi = {
+  // Fetch the user's history of nudges
+  list: () => apiFetch<Nudge[]>("/nudges"),
+
+  // Rate a specific nudge (+1 or -1)
+  rate: (id: string, rating: number) =>
+    apiFetch<{ status: string; new_weights: Record<string, number> }>(`/nudges/${id}/rate`, {
+      method: "POST",
+      body: JSON.stringify({ rating }),
+    }),
+};
