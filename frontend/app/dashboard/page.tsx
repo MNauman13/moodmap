@@ -8,6 +8,7 @@ import type { InsightsResponse, JournalEntryResponse, TrendDataPoint } from "@/l
 import MoodTrendChart, { scoreToMeta } from "./components/MoodTrendChart";
 import EmotionBreakdown from "./components/EmotionBreakdown";
 import MoodHeatmap from "./components/MoodHeatmap";
+import NudgesWidget from "@/components/NudgesWidget";
 import styles from "./dashboard.module.css";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -196,6 +197,16 @@ export default function DashboardPage() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* ── Nudges Widget ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05, duration: 0.4 }}
+            className="mb-12"
+          >
+            <NudgesWidget />
+          </motion.div>
 
           {/* ── Stat strip ── */}
           <motion.div
