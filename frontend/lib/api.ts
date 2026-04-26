@@ -12,16 +12,10 @@ import { supabase } from "@/lib/supabase";
 
 // ── Types — mirror Python Pydantic models exactly ──────────────
 
-/**
- * AnalysisStatus mirrors the Python AnalysisStatus enum in db_models.py.
- * NOTE: analysis.py currently sets entry.status = "COMPLETED" (uppercase),
- * which is a bug — the enum expects "completed" lowercase.
- * The dashboard handles both defensively via isDone() / isFailed().
- */
 export type AnalysisStatus =
   | "pending" | "queued" | "processing"
   | "completed" | "failed"
-  | "COMPLETED" | "FAILED";   // defensive — see note above
+  | "COMPLETED" | "FAILED";   // uppercase variants kept for backwards-compat with old DB rows
 
 export interface MoodScores {
   text_joy: number | null;
@@ -75,8 +69,10 @@ export interface JournalEntryCreate {
 
 export interface PresignedUrlResponse {
   upload_url: string;
+  fields: Record<string, string>; // must be included in the multipart POST body
   object_key: string;
   expires_in: number;
+  max_bytes: number;
 }
 
 /**
@@ -186,13 +182,18 @@ export const insightsApi = {
  * Returns the object_key to include in the journal entry POST body.
  */
 export async function uploadAudioToR2(audioBlob: Blob, fileExtension = "webm"): Promise<string> {
-  const { upload_url, object_key } = await journalApi.getPresignedUrl(fileExtension);
+  const { upload_url, fields, object_key, max_bytes } = await journalApi.getPresignedUrl(fileExtension);
 
-  const uploadRes = await fetch(upload_url, {
-    method: "PUT",
-    headers: { "Content-Type": `audio/${fileExtension}` },
-    body: audioBlob,
-  });
+  if (audioBlob.size > max_bytes) {
+    throw new Error(`Audio file is too large (max ${Math.round(max_bytes / 1024 / 1024)} MB).`);
+  }
+
+  // R2 presigned POST requires a multipart form — all policy fields must be included
+  const form = new FormData();
+  Object.entries(fields).forEach(([k, v]) => form.append(k, v));
+  form.append("file", audioBlob, `recording.${fileExtension}`);
+
+  const uploadRes = await fetch(upload_url, { method: "POST", body: form });
 
   if (!uploadRes.ok) throw new Error(`R2 upload failed: ${uploadRes.status}`);
   return object_key;

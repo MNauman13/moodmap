@@ -5,7 +5,6 @@
  * This keeps the backend URL private and lets us add middleware here later.
  */
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8000"
 

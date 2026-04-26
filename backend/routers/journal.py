@@ -1,4 +1,7 @@
+import asyncio
+from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.dialects.postgresql import insert
@@ -19,7 +22,11 @@ from backend.models.schemas import (
     PresignedUrlResponse,
 )
 from backend.services.storage import r2_storage
+from backend.services.rate_limiter import check_rate_limit
+from backend.services.cache import cache_delete
 from backend.tasks.analysis import analyze_entry
+
+_DAILY_ENTRY_LIMIT = 20  # max journal entries per user per calendar day
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/journal", tags=["journal"])
@@ -72,6 +79,9 @@ async def get_presigned_upload_url(
     body: PresignedUrlRequest,
     current_user: str = Depends(get_current_user),
 ):
+    # 5 presigned URLs per minute per user prevents bulk-upload abuse
+    check_rate_limit(f"rl:presigned:{current_user}", max_requests=5, window_seconds=60)
+
     result = r2_storage.generate_upload_presigned_url(
         user_id=current_user,
         file_extension=body.file_extension,
@@ -90,6 +100,23 @@ async def create_journal_entry(
     current_user: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # 10 submissions per minute per user (burst protection)
+    check_rate_limit(f"rl:journal_create:{current_user}", max_requests=10, window_seconds=60)
+
+    # Daily cap: max 20 entries per calendar day
+    today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
+    count_today = await db.scalar(
+        select(func.count()).select_from(JournalEntry).where(
+            JournalEntry.user_id == uuid.UUID(current_user),
+            JournalEntry.created_at >= today_start,
+        )
+    )
+    if count_today >= _DAILY_ENTRY_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Daily limit of {_DAILY_ENTRY_LIMIT} journal entries reached. Try again tomorrow.",
+        )
+
     if body.audio_key:
         if not r2_storage.object_exists(body.audio_key):
             raise HTTPException(
@@ -120,6 +147,9 @@ async def create_journal_entry(
 
     task = analyze_entry.delay(str(entry.id))
     logger.info(f"Queued analysis task {task.id} for entry {entry.id}")
+
+    # Bust insights cache so the next dashboard load reflects the new entry
+    cache_delete(f"insights:{current_user}")
 
     return JournalEntryCreatedResponse(
         entry_id=str(entry.id),
@@ -221,6 +251,54 @@ async def get_analysis_status(
         raise HTTPException(status_code=404, detail="Entry not found")
 
     return {"entry_id": entry_id, "status": row[0]}
+
+
+@router.get(
+    "/{entry_id}/analysis-stream",
+    summary="SSE stream — pushes status updates until analysis completes or fails",
+)
+async def stream_analysis_status(
+    entry_id: str,
+    current_user: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        entry_uuid = uuid.UUID(entry_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid entry ID format")
+
+    async def event_generator():
+        _TERMINAL = {"completed", "COMPLETED", "failed", "FAILED"}
+        _POLL_INTERVAL = 2.0  # check DB every 2 seconds server-side
+
+        while True:
+            result = await db.execute(
+                select(JournalEntry.status).where(
+                    JournalEntry.id == entry_uuid,
+                    JournalEntry.user_id == uuid.UUID(current_user),
+                )
+            )
+            row = result.first()
+            if not row:
+                yield f"event: error\ndata: not_found\n\n"
+                return
+
+            current_status = str(row[0])
+            yield f"data: {current_status}\n\n"
+
+            if current_status in _TERMINAL:
+                return
+
+            await asyncio.sleep(_POLL_INTERVAL)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.delete(

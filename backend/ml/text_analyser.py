@@ -1,7 +1,7 @@
 import os
 import torch
 import logging
-from transformers import RobertaForSequenceClassification, RobertaTokenizer
+from transformers import RobertaForSequenceClassification, AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,8 @@ class TextEmotionAnalyzer:
             
             try:
                 # Explicitly pass the model_name to BOTH the tokenizer and the model
-                self.tokenizer = RobertaTokenizer.from_pretrained(
-                    "roberta-base", 
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_name,
                     token=hf_token
                 )
                 self.model = RobertaForSequenceClassification.from_pretrained(

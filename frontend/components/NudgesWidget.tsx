@@ -51,7 +51,7 @@ export default function NudgesWidget() {
                     <h3 className="font-['Lora'] text-[16px] text-[#c8bfb0]">Insights caught up</h3>
                     <p className="text-[12px] font-light text-[#6b6357] mt-1">Keep journaling to generate new AI interventions.</p>
                 </div>
-                <Link href="/dashboard/nudges" className="text-[12px] text-[#c8a96e] hover:text-[#e8e4dc] transition-colors">
+                <Link href="/nudges" className="text-[12px] text-[#c8a96e] hover:text-[#e8e4dc] transition-colors">
                     View History →
                 </Link>
             </div>
@@ -82,7 +82,7 @@ export default function NudgesWidget() {
                         )}
                     </div>
                     
-                    <Link href="/dashboard/nudges" className="text-[11px] text-[#6b6357] hover:text-[#c8a96e] transition-colors">
+                    <Link href="/nudges" className="text-[11px] text-[#6b6357] hover:text-[#c8a96e] transition-colors">
                         View all
                     </Link>
                 </div>

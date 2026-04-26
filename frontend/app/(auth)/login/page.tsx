@@ -82,7 +82,7 @@ export default function Login() {
                 </form>
 
                 <p className="mt-8 text-center text-[13px] text-[#6b6357]">
-                    Don't have an account?{' '}
+                    Don&apos;t have an account?{' '}
                     <Link href="/signup" className="text-[#c8a96e] transition-colors hover:text-[#e8e4dc] hover:underline underline-offset-4">
                         Sign up
                     </Link>

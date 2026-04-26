@@ -118,6 +118,7 @@ export default function JournalPage() {
       console.error("Microphone access denied:", err);
       setErrorMessage("Microphone access denied. Please allow mic access and try again.");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stopRecording = useCallback(() => {
@@ -209,8 +210,8 @@ export default function JournalPage() {
 
       setSubmitState("success");
       setTimeout(() => router.push("/dashboard"), 1800);
-    } catch (err: any) {
-      setErrorMessage(err.message || "Something went wrong. Please try again.");
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setSubmitState("error");
     }
   }, [text, audioBlob, audioObjectKey, selectedTags, uploadAudio, router]);

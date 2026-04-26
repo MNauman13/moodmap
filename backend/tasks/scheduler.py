@@ -1,10 +1,12 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from celery import shared_task
 
 from backend.database import SyncSessionLocal
-from backend.models.db_models import UserProfile
-from backend.agents.distress_agent import distress_agent
+from backend.models.db_models import UserProfile, Nudge
+from backend.agents.distress_agent import distress_agent, _UK_HELPLINES
+from backend.services.email import send_crisis_email
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,49 @@ def process_single_user(user_id: str):
         logger.info(f"Successfully completed agent check for user: {user_id}")
     except Exception as e:
         logger.error(f"Agent failed for user {user_id}: {str(e)}")
+
+@shared_task
+def run_immediate_agent_check(user_id: str):
+    """Triggered right after analysis when a very negative fused_score is detected."""
+    logger.info(f"Immediate distress check triggered for user {user_id}")
+    process_single_user(user_id)
+
+
+@shared_task
+def run_immediate_crisis_nudge(user_id: str):
+    """Triggered immediately when crisis keywords are found in a journal entry."""
+    logger.warning(f"CRISIS: immediate nudge triggered for user {user_id}")
+    try:
+        with SyncSessionLocal() as db:
+            # Respect the 24-hour cooldown so we never double-send
+            yesterday = datetime.now(timezone.utc) - timedelta(hours=24)
+            recent = db.query(Nudge).filter(
+                Nudge.user_id == user_id,
+                Nudge.sent_at >= yesterday,
+            ).first()
+            if recent:
+                logger.info(f"Crisis nudge skipped for {user_id} — cooldown active")
+                return
+
+            nudge = Nudge(
+                user_id=user_id,
+                nudge_type="crisis",
+                content=_UK_HELPLINES,
+                trigger_reason="Crisis keywords detected in journal text",
+            )
+            db.add(nudge)
+
+            user = db.query(UserProfile).filter(UserProfile.id == user_id).first()
+            db.commit()
+
+        if user and user.username:
+            send_crisis_email(
+                to_email=user.username,
+                username=user.username.split('@')[0].capitalize(),
+            )
+    except Exception as e:
+        logger.error(f"Crisis nudge failed for user {user_id}: {e}")
+
 
 @shared_task
 def run_nightly_agent_check():

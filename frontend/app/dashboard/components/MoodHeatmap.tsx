@@ -38,12 +38,12 @@ function buildGrid(data: TrendDataPoint[]): DayCell[][] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Start from the most recent Sunday, go back 12 weeks
+  // Start from the most recent Sunday, go back 7 weeks
   const startDay = new Date(today);
-  startDay.setDate(today.getDate() - today.getDay() - 12 * 7);
+  startDay.setDate(today.getDate() - today.getDay() - 7 * 7);
 
   const weeks: DayCell[][] = [];
-  for (let w = 0; w < 13; w++) {
+  for (let w = 0; w < 8; w++) {
     const week: DayCell[] = [];
     for (let d = 0; d < 7; d++) {
       const date = new Date(startDay);
@@ -92,7 +92,7 @@ export default function MoodHeatmap({ data, loading }: Props) {
 
   return (
     <div className="bg-[#0c0b09] border border-[#1a1815] rounded-xl p-6">
-      <p className="font-['Lora'] text-[15px] text-[#c8bfb0] mb-1">13-week calendar</p>
+      <p className="font-['Lora'] text-[15px] text-[#c8bfb0] mb-1">8-week calendar</p>
       <p className="text-[12px] text-[#4a4438] font-light mb-5">
         Each square is one day — hover to see your score
       </p>
@@ -107,7 +107,7 @@ export default function MoodHeatmap({ data, loading }: Props) {
         </div>
       ) : (
         <div className="overflow-x-auto pb-1">
-          <div style={{ minWidth: 520 }}>
+          <div style={{ minWidth: 320 }}>
 
             {/* Month labels row */}
             <div className="flex mb-1 ml-6">

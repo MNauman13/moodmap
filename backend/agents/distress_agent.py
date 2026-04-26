@@ -8,9 +8,22 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 
 from datetime import datetime, timedelta, timezone
+from sqlalchemy import func
 from backend.database import SyncSessionLocal
 from backend.models.db_models import MoodScore, Nudge, UserProfile, AgentState as DBAgentState
-from backend.services.email import send_nudge_email
+from backend.services.email import send_nudge_email, send_crisis_email
+
+# UK helplines inserted verbatim when crisis mood trajectory is detected
+_UK_HELPLINES = (
+    "We're concerned about you and want to make sure you have immediate support:\n\n"
+    "• Samaritans — call or text 116 123 (free, 24/7, confidential)\n"
+    "• Shout crisis text line — text SHOUT to 85258 (free, 24/7)\n"
+    "• NHS urgent mental health — call 111, select option 2\n"
+    "• CALM (men's mental health) — 0800 58 58 58\n"
+    "• Papyrus (under 35) — 0800 068 4141\n"
+    "• Emergency — call 999 if you are in immediate danger\n\n"
+    "You are not alone. Please reach out."
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +31,12 @@ logger = logging.getLogger(__name__)
 # This is the memory of our agent. Every node will read from this and write back to it
 class AgentState(TypedDict):
     user_id: str
-    mood_history: List[float]  # The last 7 days of fused_scores
-    trajectory: Dict[str, float]  # The math: slope, volatility, z_score
-    distress_detected: bool  # Yes or No flag
-    nudge_content: str  # The actual message written by Claude
-    nudge_type: str  # e.g. 'cbt', 'breathing', 'social'
+    mood_history: List[float]
+    trajectory: Dict[str, float]
+    distress_detected: bool
+    is_crisis: bool   # severe enough to skip LLM and send helplines directly
+    nudge_content: str
+    nudge_type: str
 
 
 # 2. The Math Node
@@ -75,23 +89,23 @@ def check_threshold(state: AgentState) -> dict:
     scores = state["mood_history"]
 
     distress = False
+    is_crisis = False
 
     if len(scores) >= 3:
-        # Rule 1: A rapid downward spiral (Slope is very negative)
         if traj["slope"] <= -0.15:
             distress = True
-
-        # Rule 2: An anomaly (Today is significantly worse than their baseline)
         elif traj["z_score"] <= -1.5:
             distress = True
-
-        # Rule 3: Chronic low mood (The last 3 days have all been deeply negative)
         elif all(score < -0.3 for score in scores[-3:]):
             distress = True
-    
-    logger.info(f"Threshold check complete. Distress detected: {distress}")
 
-    return {"distress_detected": distress}
+        # Crisis: every recent score extremely negative AND steep decline
+        if all(score < -0.65 for score in scores[-3:]) and traj["slope"] <= -0.2:
+            is_crisis = True
+            distress = True
+
+    logger.info(f"Threshold check complete. Distress: {distress}, Crisis: {is_crisis}")
+    return {"distress_detected": distress, "is_crisis": is_crisis}
 
 
 # The Conditional Router
@@ -125,8 +139,13 @@ def fetch_history(state: AgentState) -> dict:
 
 # 5. The LLM Node - With Continual Learning
 def generate_nudge(state: AgentState) -> dict:
-    """Uses Claude to write a highly personalized, empathetic nudge based on user preferences."""
+    """Uses Claude to write a personalized nudge, or returns crisis helplines if needed."""
     logger.info("Distress detected! Determining intervention type...")
+
+    # Crisis: skip LLM entirely, use pre-written helpline message
+    if state.get("is_crisis"):
+        logger.warning(f"Crisis flag set for user {state['user_id']} — returning UK helplines directly")
+        return {"nudge_content": _UK_HELPLINES, "nudge_type": "crisis"}
     
     # 1. Fetch the user's custom learning weights from the database
     with SyncSessionLocal() as db:
@@ -148,7 +167,7 @@ def generate_nudge(state: AgentState) -> dict:
     logger.info(f"Agent selected intervention strategy: {nudge_type.upper()}")
 
     # 3. Initialize Claude
-    llm = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.7)
+    llm = ChatAnthropic(model="claude-haiku-4-5-20251001", temperature=0.7)
     
     # 4. We update the prompt to explicitly force Claude to use the chosen strategy!
     prompt = ChatPromptTemplate.from_messages([
@@ -182,30 +201,38 @@ def send_nudge(state: AgentState) -> dict:
     logger.info("Saving nudge to database...")
 
     with SyncSessionLocal() as db:
+        # Guard: only send one nudge per user per 24 hours to avoid email spam
+        yesterday = datetime.now(timezone.utc) - timedelta(hours=24)
+        recent_nudge = db.query(Nudge).filter(
+            Nudge.user_id == state['user_id'],
+            Nudge.sent_at >= yesterday,
+        ).first()
+        if recent_nudge:
+            logger.info(f"Skipping nudge for user {state['user_id']} — one was sent in the last 24h")
+            return {}
+
         # 1. Save to database
         new_nudge = Nudge(
-            user_id = state['user_id'],
-            nudge_type = state['nudge_type'],
-            content = state['nudge_content'],
-            trigger_reason = f"Agent detected negative slope of {state['trajectory']['slope']:.2f}"
+            user_id=state['user_id'],
+            nudge_type=state['nudge_type'],
+            content=state['nudge_content'],
+            trigger_reason=f"Agent detected negative slope of {state['trajectory']['slope']:.2f}",
         )
         db.add(new_nudge)
 
         # 2. Get the user's profile to find their name/email
-        # (Assuming 'username' is an email for now, based on standard Supabase setups)
-        user = db.query(UserProfile).filter(UserProfile.id == state['user_id'].first())
+        user = db.query(UserProfile).filter(UserProfile.id == state['user_id']).first()
 
         if user and user.username:
-            # Change "YOUR_RESEND_EMAIL@DOMAIN.COM" to the exact email you used to sign up for Resend!
-            # Since you are on the free tier, you can only send test emails to yourself.
-            target_email = "mnaumansiddiqui06@gmail.com" 
-            
-            # Fire the email!
-            send_nudge_email(
-                to_email=target_email,
-                username=user.username.split('@')[0].capitalize(), 
-                nudge_content=state['nudge_content']
-            )
+            name = user.username.split('@')[0].capitalize()
+            if state.get("nudge_type") == "crisis" or state.get("is_crisis"):
+                send_crisis_email(to_email=user.username, username=name)
+            else:
+                send_nudge_email(
+                    to_email=user.username,
+                    username=name,
+                    nudge_content=state['nudge_content'],
+                )
 
         db.commit()
 

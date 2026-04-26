@@ -1,18 +1,34 @@
-.gitignore
-
 # Python / Backend
 backend/venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment Variables — NEVER commit secrets
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 
 # Node / Frontend
 frontend/node_modules/
 frontend/.next/
-
-# Environment Variables (Keep secrets safe!)
-.env
+frontend/out/
 
 # OS Files
 .DS_Store
+Thumbs.db
 
+# Tests / tooling
 .pytest_cache
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+.claude

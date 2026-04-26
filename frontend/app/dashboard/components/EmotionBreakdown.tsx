@@ -6,8 +6,6 @@ import type { EmotionDataPoint } from "@/lib/api";
 import styles from "../dashboard.module.css";
 
 // ── Colour map ─────────────────────────────────────────────────
-// Keys are capitalised to match insights.py's .capitalize() output
-// e.g. "joy" → "Joy"
 const EMOTION_COLORS: Record<string, string> = {
   Joy:      "#c8a96e",
   Sadness:  "#5c7a9e",
@@ -23,9 +21,7 @@ function getColor(name: string, index: number): string {
   return EMOTION_COLORS[name] ?? FALLBACK[index % FALLBACK.length];
 }
 
-// ── Sector shape — replaces deprecated activeShape + activeIndex ──
-// Recharts v2.13+: pass shape to <Cell>, receives isActive automatically
-
+// ── Active sector shape ────────────────────────────────────────
 interface SectorShapeProps {
   cx: number;
   cy: number;
@@ -36,38 +32,24 @@ interface SectorShapeProps {
   fill: string;
   payload: EmotionDataPoint;
   percent: number;
-  isActive: boolean;
 }
 
-function CustomSector(props: SectorShapeProps) {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, isActive } = props;
-
-  if (!isActive) {
-    return (
-      <Sector cx={cx} cy={cy}
-        innerRadius={innerRadius} outerRadius={outerRadius}
-        startAngle={startAngle} endAngle={endAngle}
-        fill={fill} opacity={0.4}
-      />
-    );
-  }
+function ActiveSector(props: SectorShapeProps) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent } = props;
 
   return (
     <g>
-      {/* Centre text — SVG <text> needs CSS Module classes since Tailwind can't target it */}
       <text x={cx} y={cy - 10} textAnchor="middle" className={styles.pieCenterLabel}>
         {payload.name}
       </text>
       <text x={cx} y={cy + 14} textAnchor="middle" className={styles.pieCenterPct}>
         {(percent * 100).toFixed(0)}%
       </text>
-      {/* Expanded active slice */}
       <Sector cx={cx} cy={cy}
         innerRadius={innerRadius} outerRadius={outerRadius + 6}
         startAngle={startAngle} endAngle={endAngle}
         fill={fill}
       />
-      {/* Outer ring accent */}
       <Sector cx={cx} cy={cy}
         innerRadius={outerRadius + 10} outerRadius={outerRadius + 12}
         startAngle={startAngle} endAngle={endAngle}
@@ -111,6 +93,9 @@ export default function EmotionBreakdown({ data, loading }: Props) {
                   cx="50%" cy="50%"
                   innerRadius={46} outerRadius={68}
                   dataKey="value"
+                  activeShape={(props: unknown) => (
+                    <ActiveSector {...(props as SectorShapeProps)} />
+                  )}
                   onMouseEnter={(_, index) => setActiveIndex(index)}
                   strokeWidth={0}
                 >
@@ -118,14 +103,7 @@ export default function EmotionBreakdown({ data, loading }: Props) {
                     <Cell
                       key={`cell-${entry.name}`}
                       fill={getColor(entry.name, index)}
-                      shape={(props: object) => (
-                        <CustomSector
-                          {...(props as SectorShapeProps)}
-                          fill={getColor(entry.name, index)}
-                          payload={entry}
-                          isActive={index === activeIndex}
-                        />
-                      )}
+                      opacity={index === activeIndex ? 1 : 0.4}
                     />
                   ))}
                 </Pie>

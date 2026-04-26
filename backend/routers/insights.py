@@ -10,11 +10,15 @@ from typing import List
 from backend.database import get_db
 from backend.models.db_models import MoodScore
 from backend.routers.user import get_current_user_id
+from backend.services.cache import cache_get, cache_set
 
 router = APIRouter(
     prefix="/api/v1/insights",
     tags=["insights"]
 )
+
+_INSIGHTS_TTL = 300  # 5 minutes
+
 
 # Pydantic Schemas for Swagger UI / Frontend Typing
 class TrendDataPoint(BaseModel):
@@ -28,74 +32,76 @@ class EmotionDataPoint(BaseModel):
 class InsightsResponse(BaseModel):
     trend_data: List[TrendDataPoint]
     emotion_breakdown: List[EmotionDataPoint]
-    calendar_data: List[TrendDataPoint] # Recharts calendar uses the same format
+    calendar_data: List[TrendDataPoint]  # Recharts calendar uses the same format
+
 
 # API Route
-@router.get("", response_model = InsightsResponse)
+@router.get("", response_model=InsightsResponse)
 async def get_user_insights(
     current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Fetches the last 30 days of mood scores and formats them 
-    for Recharts (Line Charts) and Calendar Heatmaps.
-    """
-    user_uuid = uuid.UUID(current_user_id)
-    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    cache_key = f"insights:{current_user_id}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return InsightsResponse(**cached)
 
-    # 1. ASYNC SQLALCHEMY 2.0 QUERY
-    # We query the MoodScore table directly since it holds the fused_score and time
+    user_uuid = uuid.UUID(current_user_id)
+    now = datetime.now(timezone.utc)
+    fifty_six_days_ago = now - timedelta(days=56)
+    thirty_days_ago = now - timedelta(days=30)
+
+    # Single query for 56 days; 30-day slice derived in Python (-1 DB roundtrip)
     stmt = select(MoodScore).where(
         MoodScore.user_id == user_uuid,
-        MoodScore.time >= thirty_days_ago,
-        MoodScore.fused_score.is_not(None)
+        MoodScore.time >= fifty_six_days_ago,
+        MoodScore.fused_score.is_not(None),
     ).order_by(MoodScore.time.asc())
 
     result = await db.execute(stmt)
-    scores = result.scalars().all()
+    all_scores = result.scalars().all()
 
-    # 2. Return empty arrays if no data exists
-    if not scores:
-        return InsightsResponse(
-            trend_data=[],
-            emotion_breakdown=[],
-            calendar_data=[]
-        )
+    if not all_scores:
+        return InsightsResponse(trend_data=[], emotion_breakdown=[], calendar_data=[])
 
-    # 3. DATA AGGREGATION
-    daily_scores = defaultdict(list)
-    emotion_counts = defaultdict(int)
+    scores_30 = [s for s in all_scores if s.time >= thirty_days_ago]
 
-    for score in scores:
-        # Extract the day string (YYYY-MM-DD)
+    # ── Aggregate 30-day data ──────────────────────────────────────
+    daily_30: dict = defaultdict(list)
+    emotion_counts: dict = defaultdict(int)
+
+    for score in scores_30:
         day_str = score.time.strftime("%Y-%m-%d")
-        
-        # Collect scores to average later
-        daily_scores[day_str].append(score.fused_score)
-        
-        # Tally up the dominant emotions
+        daily_30[day_str].append(score.fused_score)
         if score.dominant_emotion:
             emotion_counts[score.dominant_emotion] += 1
 
-    # 4. FORMATTING FOR RECHARTS
-    trend_data = []
-    
-    for day, day_scores in daily_scores.items():
-        # Average the scores if the user journaled multiple times in one day
-        avg_score = sum(day_scores) / len(day_scores)
-        
-        trend_data.append(
-            TrendDataPoint(date=day, score=round(avg_score, 4))
-        )
+    trend_data = sorted(
+        [TrendDataPoint(date=d, score=round(sum(v) / len(v), 4)) for d, v in daily_30.items()],
+        key=lambda p: p.date,
+    )
 
-    # Convert the emotion tally dictionary into an array of objects
     emotion_breakdown = [
-        EmotionDataPoint(name=emotion.capitalize(), value=count) 
-        for emotion, count in emotion_counts.items()
+        EmotionDataPoint(name=e.capitalize(), value=c)
+        for e, c in sorted(emotion_counts.items(), key=lambda x: -x[1])
     ]
 
-    return InsightsResponse(
+    # ── Aggregate 56-day data for heatmap ─────────────────────────
+    daily_56: dict = defaultdict(list)
+    for score in all_scores:
+        day_str = score.time.strftime("%Y-%m-%d")
+        daily_56[day_str].append(score.fused_score)
+
+    calendar_data = sorted(
+        [TrendDataPoint(date=d, score=round(sum(v) / len(v), 4)) for d, v in daily_56.items()],
+        key=lambda p: p.date,
+    )
+
+    response = InsightsResponse(
         trend_data=trend_data,
         emotion_breakdown=emotion_breakdown,
-        calendar_data=trend_data # Using the same array structure for the calendar
+        calendar_data=calendar_data,
     )
+
+    cache_set(cache_key, response.model_dump(), ttl_seconds=_INSIGHTS_TTL)
+    return response

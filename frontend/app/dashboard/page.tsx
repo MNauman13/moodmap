@@ -105,29 +105,83 @@ const EMOTION_COLORS: Record<string, string> = {
 // ── Page ───────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [insights, setInsights] = useState<InsightsResponse | null>(null);
-  const [entries,  setEntries]  = useState<JournalEntryResponse[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
+  const [insights,     setInsights]     = useState<InsightsResponse | null>(null);
+  const [entries,      setEntries]      = useState<JournalEntryResponse[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
+  const [justFinished, setJustFinished] = useState(false);
+
+  async function loadData() {
+    const [ins, list] = await Promise.all([
+      insightsApi.get(),
+      journalApi.list(1, 3),
+    ]);
+    setInsights(ins);
+    setEntries(list.entries);
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        // Both requests fire in parallel — no waterfall
-        const [ins, list] = await Promise.all([
-          insightsApi.get(),
-          journalApi.list(1, 3),
-        ]);
-        setInsights(ins);
-        setEntries(list.entries);
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : "Failed to load dashboard");
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+    Promise.all([insightsApi.get(), journalApi.list(1, 3)])
+      .then(([ins, list]) => { setInsights(ins); setEntries(list.entries); })
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load dashboard"))
+      .finally(() => setLoading(false));
   }, []);
+
+  // ── SSE stream while the latest entry is still being analysed ───
+  // Uses fetch (not EventSource) so we can attach the Authorization header.
+  const pendingEntry =
+    entries[0] && !isDone(entries[0].status) && !isFailed(entries[0].status)
+      ? entries[0]
+      : null;
+
+  useEffect(() => {
+    if (!pendingEntry) return;
+    const entryId = pendingEntry.id;
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const { supabase } = await import("@/lib/supabase");
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const res = await fetch(`/api/v1/journal/${entryId}/analysis-stream`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          signal: controller.signal,
+        });
+
+        if (!res.body) return;
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          // SSE lines look like "data: completed\n\n"
+          for (const line of chunk.split("\n")) {
+            if (!line.startsWith("data:")) continue;
+            const receivedStatus = line.replace("data:", "").trim();
+            if (isDone(receivedStatus) || isFailed(receivedStatus)) {
+              reader.cancel();
+              await loadData();
+              if (isDone(receivedStatus)) {
+                setJustFinished(true);
+                setTimeout(() => setJustFinished(false), 4000);
+              }
+              return;
+            }
+          }
+        }
+      } catch {
+        // Aborted on unmount — no action needed
+      }
+    })();
+
+    return () => controller.abort();
+  }, [pendingEntry?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived stats ──────────────────────────────────────────────
   const latestScore = insights?.trend_data?.at(-1)?.score ?? null;
@@ -146,14 +200,12 @@ export default function DashboardPage() {
   const dominantEmotion = insights?.emotion_breakdown?.[0] ?? null;
 
   return (
-    <div className="min-h-screen bg-[#0e0d0b] text-[#e8e4dc]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#0e0d0b] text-[#e8e4dc]" style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
       {/*
         Fonts: loaded via next/font in layout.tsx for the project font.
         Lora + DM Sans are loaded here as a scoped import since they're
         specific to the dashboard/journal aesthetic pages only.
       */}
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap');`}</style>
-
       <div className="grid px-5" style={{ gridTemplateColumns: "1fr min(1040px, 100%) 1fr" }}>
         <div className="col-start-2 py-12 pb-24">
 
@@ -170,7 +222,7 @@ export default function DashboardPage() {
                   weekday: "long", day: "numeric", month: "long", year: "numeric",
                 })}
               </p>
-              <h1 style={{ fontFamily: "'Lora', serif" }}
+              <h1 style={{ fontFamily: "var(--font-lora), serif" }}
                 className="text-[clamp(26px,4vw,38px)] font-normal text-[#f0ece2] leading-tight">
                 Your <em className="text-[#c8a96e] italic">emotional</em> map
               </h1>
@@ -194,6 +246,36 @@ export default function DashboardPage() {
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               >
                 {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── Analysis status banner ── */}
+          <AnimatePresence>
+            {pendingEntry && (
+              <motion.div
+                key="analysing"
+                className="flex items-center gap-3 rounded-xl border border-[#c8a96e]/30 bg-[#0c0b09] px-5 py-3.5 mb-8"
+                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#c8a96e] opacity-60" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#c8a96e]" />
+                </div>
+                <p className="text-[13px] text-[#c8bfb0] font-light">
+                  Analysing your latest entry — your mood scores will update automatically.
+                </p>
+              </motion.div>
+            )}
+            {justFinished && !pendingEntry && (
+              <motion.div
+                key="done"
+                className="flex items-center gap-3 rounded-xl border border-[#3a5a30]/60 bg-[#0c0b09] px-5 py-3.5 mb-8"
+                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <span className="text-[13px] text-[#6a9a60]">Analysis complete — your dashboard has been updated.</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -326,7 +408,7 @@ export default function DashboardPage() {
                         >
                           {/* Date column */}
                           <div className="text-center pt-0.5">
-                            <p style={{ fontFamily: "'Lora', serif" }}
+                            <p style={{ fontFamily: "var(--font-lora), serif" }}
                               className="text-[20px] font-normal text-[#c8bfb0] leading-none">
                               {d.getDate()}
                             </p>
@@ -337,7 +419,7 @@ export default function DashboardPage() {
 
                           {/* Body */}
                           <div>
-                            <p style={{ fontFamily: "'Lora', serif" }}
+                            <p style={{ fontFamily: "var(--font-lora), serif" }}
                               className="text-[15px] text-[#8a8070] leading-relaxed line-clamp-2">
                               {entry.text}
                             </p>

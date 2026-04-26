@@ -1,29 +1,49 @@
-version: '3.8'
+# MoodMap — Development Infrastructure
+#
+# Runs only the backing services (DB, Redis, MLflow).
+# The FastAPI server and Celery workers are started separately on the host:
+#
+#   uvicorn backend.main:app --reload
+#   celery -A backend.celery_app worker -Q high,default,low --loglevel=info
+#   celery -A backend.celery_app beat --loglevel=info
 
 services:
-  # 1. TimescaleDB (PostgreSQL optimised for time-series data like mood tracking)
+
+  # TimescaleDB — PostgreSQL optimised for time-series mood scores
   db:
     image: timescale/timescaledb:latest-pg16
     container_name: moodmap_db
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=moodmap
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: moodmap
     ports:
       - "5432:5432"
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d moodmap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
-  # 2. Redis (Used by Celery to queue up background tasks like AI analysis)
+  # Redis — Celery broker, result backend, rate limiter, and cache
   redis:
     image: redis:7-alpine
     container_name: moodmap_redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
-  # 3. MLflow (Tracks your machine learning model metrics)
+  # MLflow — tracks ML model experiments and metrics
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.11.3
     container_name: moodmap_mlflow
@@ -32,6 +52,6 @@ services:
       - "5000:5000"
     restart: unless-stopped
 
-# This ensures database doesn't get wiped every time docker is turned off
 volumes:
   timescaledb_data:
+  redis_data:

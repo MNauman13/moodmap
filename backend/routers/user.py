@@ -1,6 +1,8 @@
 import os
+import time
 import urllib.request
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
@@ -8,46 +10,45 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/v1/user", tags=["User"])
 
 security = HTTPBearer()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 
-# We cache the public keys so we don't have to download them on every single request
-JWKS = None
+_jwks_cache: dict | None = None
+_jwks_cache_until: float = 0.0
+_JWKS_TTL = 86_400  # re-fetch public keys every 24 hours (was 1 hour)
+
 
 def get_supabase_jwks():
-    global JWKS
-    if JWKS is None:
+    global _jwks_cache, _jwks_cache_until
+    if _jwks_cache is None or time.time() > _jwks_cache_until:
         try:
-            # Fetch the public keys directly from your Supabase project
             jwks_url = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
-            response = urllib.request.urlopen(jwks_url)
-            JWKS = json.loads(response.read())
+            response = urllib.request.urlopen(jwks_url, timeout=5)
+            _jwks_cache = json.loads(response.read())
+            _jwks_cache_until = time.time() + _JWKS_TTL
         except Exception as e:
-            print(f"Failed to fetch JWKS: {e}")
+            logger.error(f"Failed to fetch JWKS: {e}")
+            if _jwks_cache is not None:
+                logger.warning("Using stale JWKS cache due to fetch failure")
+                return _jwks_cache
             raise HTTPException(status_code=500, detail="Auth configuration error")
-    return JWKS
+    return _jwks_cache
 
-# --- The JWT "Middleware" / Dependency ---
+
 def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    """
-    Takes the JWT token from the frontend, downloads the Supabase public keys,
-    verifies the ES256 asymmetric signature, and extracts the user's UUID.
-    """
     token = credentials.credentials
     try:
-        # 1. Get the public keys
         jwks = get_supabase_jwks()
-        
-        # 2. Decode using the modern ES256 algorithm
         payload = jwt.decode(
-            token, 
-            jwks, 
-            algorithms=["ES256"], 
+            token,
+            jwks,
+            algorithms=["ES256"],
             options={"verify_aud": False}
         )
-        
         user_id = payload.get("sub")
         if user_id is None:
             raise HTTPException(
@@ -55,9 +56,8 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
                 detail="Could not validate credentials",
             )
         return user_id
-    
     except JWTError as e:
-        print(f"JWT Verification Error: {str(e)}")
+        logger.warning(f"JWT verification failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Auth Failed: {str(e)}",

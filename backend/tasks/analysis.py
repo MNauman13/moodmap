@@ -6,12 +6,28 @@ from botocore.config import Config
 from celery import shared_task
 
 from backend.database import SyncSessionLocal
-from backend.models.db_models import JournalEntry, MoodScore
+from backend.models.db_models import JournalEntry, MoodScore, AnalysisStatus
 from backend.ml.text_analyser import TextEmotionAnalyzer
 from backend.ml.voice_analyser import VoiceEmotionAnalyzer
 from backend.ml.fusion import FusionModel
 
 logger = logging.getLogger(__name__)
+
+_CRISIS_KEYWORDS = {
+    "suicide", "suicidal", "kill myself", "end my life", "want to die",
+    "don't want to live", "no point living", "better off dead", "not worth living",
+    "end it all", "can't go on", "self-harm", "self harm", "hurt myself",
+    "cutting myself", "overdose", "take my life", "no reason to live",
+    "life isn't worth", "no way out", "give up on life",
+}
+
+_IMMEDIATE_DISTRESS_THRESHOLD = -0.6  # trigger immediate agent below this score
+
+
+def _contains_crisis(text: str) -> bool:
+    lower = text.lower()
+    return any(kw in lower for kw in _CRISIS_KEYWORDS)
+
 
 raw_endpoint = os.getenv("CLOUDFLARE_R2_ENDPOINT", "")
 logger.info(f"DEBUG - R2 Endpoint loaded as: '{raw_endpoint}'")
@@ -106,14 +122,28 @@ def analyze_entry(self, entry_id: str):
             )
             
             db.add(mood_score)
-            entry.status = "COMPLETED"
+            entry.status = AnalysisStatus.COMPLETED
+            user_id = str(entry.user_id)
+            raw_text = entry.raw_text
             db.commit()
-            
+
             logger.info(f"[analyze_entry] Success! Fused Score: {fused_score} | Dominant: {dominant_emotion}")
+
+            # Immediate intervention: check for crisis keywords or severe distress
+            # Lazy imports avoid circular-import issues at module load time
+            if _contains_crisis(raw_text):
+                logger.warning(f"Crisis keywords detected in entry {entry_id} — triggering immediate crisis nudge")
+                from backend.tasks.scheduler import run_immediate_crisis_nudge
+                run_immediate_crisis_nudge.delay(user_id)
+            elif fused_score < _IMMEDIATE_DISTRESS_THRESHOLD:
+                logger.info(f"Severe distress score ({fused_score}) — triggering immediate agent check")
+                from backend.tasks.scheduler import run_immediate_agent_check
+                run_immediate_agent_check.delay(user_id)
+
             return {"status": "completed", "fused_score": fused_score}
             
         except Exception as e:
             logger.error(f"Pipeline crashed: {str(e)}")
-            entry.status = "FAILED"
+            entry.status = AnalysisStatus.FAILED
             db.commit()
             return {"status": "error", "detail": str(e)}

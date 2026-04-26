@@ -95,8 +95,10 @@ class JournalEntryCreatedResponse(BaseModel):
 
 class PresignedUrlResponse(BaseModel):
     upload_url: str
+    fields: dict        # form fields that must be included in the multipart POST
     object_key: str
     expires_in: int
+    max_bytes: int
 
 
 class JournalListResponse(BaseModel):
@@ -105,3 +107,25 @@ class JournalListResponse(BaseModel):
     page: int
     page_size: int
     has_more: bool
+
+
+class NudgeResponse(BaseModel):
+    id: str
+    user_id: str
+    nudge_type: str
+    content: str
+    rating: Optional[int] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_db(cls, nudge) -> "NudgeResponse":
+        return cls(
+            id=str(nudge.id),
+            user_id=str(nudge.user_id),
+            nudge_type=nudge.nudge_type,
+            content=nudge.content,
+            rating=nudge.rating,
+            created_at=nudge.sent_at,
+        )
