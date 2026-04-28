@@ -6,92 +6,383 @@ logger = logging.getLogger(__name__)
 
 resend.api_key = os.getenv("RESEND_API_KEY")
 
-UK_CRISIS_HELPLINES_HTML = """
-<div style="background:#1a0505;border:2px solid #c0392b;border-radius:8px;padding:20px;margin:20px 0;">
-  <p style="color:#e74c3c;font-weight:bold;font-size:16px;margin:0 0 12px;">
-    If you are in crisis or having thoughts of suicide, please reach out right now:
-  </p>
-  <ul style="color:#f5b7b1;font-size:15px;line-height:2;margin:0;padding-left:20px;">
-    <li><strong>Samaritans</strong> — call or text <strong>116 123</strong> (free, 24/7)</li>
-    <li><strong>Shout crisis text line</strong> — text <strong>SHOUT to 85258</strong> (free, 24/7)</li>
-    <li><strong>NHS urgent mental health</strong> — call <strong>111</strong>, select option 2</li>
-    <li><strong>CALM</strong> (men's mental health) — <strong>0800 58 58 58</strong></li>
-    <li><strong>Papyrus</strong> (under 35) — <strong>0800 068 4141</strong></li>
-    <li><strong>Emergency</strong> — call <strong>999</strong> if you are in immediate danger</li>
-  </ul>
-  <p style="color:#f5b7b1;margin:12px 0 0;font-size:14px;">
-    You are not alone. These teams are trained to listen and they want to hear from you.
-  </p>
-</div>
-"""
+# ── Shared layout primitives ──────────────────────────────────────────────────
 
-def send_crisis_email(to_email: str, username: str) -> bool:
+_GOOGLE_FONTS_LINK = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    '<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400'
+    '&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">'
+)
+
+# Fonts: web fonts load in Apple Mail, iOS, Samsung Mail, Outlook on Mac.
+# Gmail ignores <link> tags — the serif/sans-serif fallbacks carry it there.
+_FONT_SERIF  = "'Lora', Georgia, 'Times New Roman', serif"
+_FONT_SANS   = "'DM Sans', 'Helvetica Neue', Arial, system-ui, sans-serif"
+
+# Palette — mirrors globals.css and the Tailwind token usage across pages
+_BG          = "#0e0d0b"
+_BG_CARD     = "#0c0b09"
+_BG_INSET    = "#141210"
+_BORDER      = "#1a1815"
+_BORDER_MID  = "#2a2720"
+_GOLD        = "#c8a96e"
+_TEXT_HI     = "#f0ece2"
+_TEXT_BODY   = "#c8bfb0"
+_TEXT_MID    = "#8a8070"
+_TEXT_LO     = "#6b6357"
+_TEXT_FAINT  = "#4a4438"
+_RED         = "#b85c4a"
+_RED_BG      = "#1a0a09"
+_RED_BORDER  = "#5a2a20"
+
+
+def _email_shell(title: str, preheader: str, body_html: str) -> str:
+    """
+    Wraps content in a full, client-compatible HTML document.
+    Uses table-based layout; inline styles only (no <style> blocks —
+    Gmail strips them). bgcolor attributes provide Outlook fallbacks.
+    """
+    return f"""<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="supported-color-schemes" content="dark">
+  <title>{title}</title>
+  {_GOOGLE_FONTS_LINK}
+  <!--[if mso]>
+  <noscript>
+    <xml><o:OfficeDocumentSettings>
+      <o:PixelsPerInch>96</o:PixelsPerInch>
+    </o:OfficeDocumentSettings></xml>
+  </noscript>
+  <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:{_BG};" bgcolor="{_BG}">
+
+  <!-- Preheader text (shown in inbox preview, hidden in body) -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
+    {preheader}&zwnj;&nbsp;&#8199;&nbsp;&#65279;&nbsp;&#847;
+  </div>
+
+  <!-- Outer wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{_BG}"
+         style="background-color:{_BG};">
+    <tr>
+      <td align="center" style="padding:48px 16px 56px;">
+
+        <!-- Content column -->
+        <table width="560" cellpadding="0" cellspacing="0" border="0"
+               style="max-width:560px;width:100%;">
+
+          <!-- ── Wordmark ── -->
+          <tr>
+            <td style="padding-bottom:28px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-bottom:1px solid {_BORDER};padding-bottom:20px;">
+                    <span style="font-family:{_FONT_SANS};font-size:11px;letter-spacing:0.18em;
+                                 text-transform:uppercase;color:{_TEXT_FAINT};font-weight:400;">
+                      moodmap
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ── Body ── -->
+          {body_html}
+
+          <!-- ── Footer ── -->
+          <tr>
+            <td style="border-top:1px solid {_BORDER};padding-top:24px;">
+              <p style="margin:0 0 6px;font-family:{_FONT_SANS};font-size:12px;
+                        font-weight:300;color:{_TEXT_FAINT};line-height:1.6;">
+                You received this because email notifications are enabled on your MoodMap account.
+                To stop these, visit <strong style="font-weight:400;">Account &rsaquo; Settings</strong>
+                and turn off notifications.
+              </p>
+              <p style="margin:0;font-family:{_FONT_SANS};font-size:11px;
+                        font-weight:300;color:#3d3830;line-height:1.5;">
+                MoodMap &mdash; your emotional companion.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>"""
+
+
+# ── Nudge email ───────────────────────────────────────────────────────────────
+
+def send_nudge_email(to_email: str, username: str, nudge_content: str) -> bool:
+    """
+    Sends a Claude-generated wellness nudge wrapped in the MoodMap design language.
+    nudge_content is already plaintext (caller decrypts before passing here).
+    """
     if not resend.api_key:
-        logger.warning("RESEND_API_KEY is missing. Crisis email skipped.")
+        logger.warning("RESEND_API_KEY is missing. Nudge email skipped.")
         return False
 
-    html_content = f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
-      <h2 style="color:#c0392b;">MoodMap — We're concerned about you</h2>
-      <p>Hi {username},</p>
-      <p>We noticed something in your recent journal entry that concerns us, and we want to make sure
-         you have access to immediate support.</p>
-      {UK_CRISIS_HELPLINES_HTML}
-      <p>If you are safe right now and just needed to express yourself, that's okay too.
-         We're glad you're using MoodMap to process your feelings.</p>
-      <p style="color:#6B7280;font-size:12px;margin-top:40px;">- The MoodMap Team</p>
-    </div>
+    body = f"""
+          <!-- Gold accent rule -->
+          <tr>
+            <td style="padding-bottom:32px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td width="32" height="1" bgcolor="{_GOLD}"
+                      style="background-color:{_GOLD};font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Eyebrow + headline -->
+          <tr>
+            <td style="padding-bottom:28px;">
+              <p style="margin:0 0 10px;font-family:{_FONT_SANS};font-size:10px;
+                        letter-spacing:0.14em;text-transform:uppercase;
+                        color:{_TEXT_LO};font-weight:400;">
+                A note for you
+              </p>
+              <h1 style="margin:0;font-family:{_FONT_SERIF};font-size:26px;font-weight:400;
+                         color:{_TEXT_HI};line-height:1.3;">
+                Hi {username} &mdash; we&rsquo;ve been thinking about you.
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Intro copy -->
+          <tr>
+            <td style="padding-bottom:32px;">
+              <p style="margin:0;font-family:{_FONT_SANS};font-size:14px;font-weight:300;
+                        color:{_TEXT_MID};line-height:1.75;">
+                Your recent journal entries have shown some patterns worth pausing on.
+                Here is something to consider as you move through your day.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Nudge quote card -->
+          <tr>
+            <td style="padding-bottom:32px;">
+              <!--[if mso]>
+              <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr><td bgcolor="{_BG_CARD}" style="padding:24px 28px;">
+              <![endif]-->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td bgcolor="{_BG_CARD}"
+                      style="background-color:{_BG_CARD};border:1px solid {_BORDER};
+                             border-left:3px solid {_GOLD};border-radius:8px;
+                             padding:24px 28px;">
+                    <p style="margin:0;font-family:{_FONT_SERIF};font-size:16px;font-style:italic;
+                               font-weight:400;color:{_TEXT_BODY};line-height:1.85;">
+                      {nudge_content}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              <!--[if mso]></td></tr></table><![endif]-->
+            </td>
+          </tr>
+
+          <!-- Closing copy -->
+          <tr>
+            <td style="padding-bottom:40px;">
+              <p style="margin:0;font-family:{_FONT_SANS};font-size:14px;font-weight:300;
+                        color:{_TEXT_MID};line-height:1.75;">
+                Small steps count. Be gentle with yourself today.
+              </p>
+            </td>
+          </tr>
+
+          <!-- CTA button -->
+          <tr>
+            <td style="padding-bottom:48px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td bgcolor="{_BG_INSET}"
+                      style="background-color:{_BG_INSET};border:1px solid {_BORDER_MID};
+                             border-radius:100px;">
+                    <a href="https://moodmap.app/journal"
+                       style="display:inline-block;padding:12px 28px;font-family:{_FONT_SANS};
+                              font-size:13px;font-weight:400;color:{_TEXT_MID};
+                              text-decoration:none;letter-spacing:0.02em;">
+                      Open your journal &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
     """
+
+    html = _email_shell(
+        title="A note for you — MoodMap",
+        preheader="A gentle nudge from your emotional companion.",
+        body_html=body,
+    )
 
     try:
         resend.Emails.send({
             "from": "MoodMap <onboarding@resend.dev>",
             "to": to_email,
-            "subject": "We're here for you — important support resources",
-            "html": html_content,
+            "subject": "A note from your MoodMap",
+            "html": html,
         })
-        logger.info(f"Crisis email sent to {to_email}")
+        logger.info("Nudge email sent to %s", to_email)
         return True
     except Exception as e:
-        logger.error(f"Failed to send crisis email: {e}")
+        logger.error("Failed to send nudge email: %s", e)
         return False
 
 
-def send_nudge_email(to_email: str, username: str, nudge_content: str):
-    """
-    Wraps the Claude nudge in a beautiful HTML template and sends it via Resend
-    """
+# ── Crisis email ──────────────────────────────────────────────────────────────
 
+def send_crisis_email(to_email: str, username: str) -> bool:
+    """
+    Sends immediate crisis support resources.
+    Tone: warm, human, non-clinical. Avoids sounding automated.
+    """
     if not resend.api_key:
-        logger.warning("RESEND_API_KEY is missing. Email skipped.")
+        logger.warning("RESEND_API_KEY is missing. Crisis email skipped.")
         return False
-    
-    # A clean, modern HTML email template
-    html_content = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-        <h2 style="color: #4F46E5;">MoodMap Check-in</h2>
-        <p>Hi {username},</p>
-        <p>We've noticed you've been having a tough time lately. We just wanted to reach out and offer a thought:</p>
-        
-        <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #4F46E5;">
-            <p style="font-size: 16px; margin: 0; font-style: italic; color: #1F2937;">"{nudge_content}"</p>
-        </div>
-        
-        <p>Take care of yourself today.</p>
-        <p style="color: #6B7280; font-size: 12px; margin-top: 40px;">- The MoodMap Team</p>
-    </div>
+
+    body = f"""
+          <!-- Warm red accent rule -->
+          <tr>
+            <td style="padding-bottom:32px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td width="32" height="1" bgcolor="{_RED}"
+                      style="background-color:{_RED};font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Eyebrow + headline -->
+          <tr>
+            <td style="padding-bottom:28px;">
+              <p style="margin:0 0 10px;font-family:{_FONT_SANS};font-size:10px;
+                        letter-spacing:0.14em;text-transform:uppercase;
+                        color:{_TEXT_LO};font-weight:400;">
+                We&rsquo;re here for you
+              </p>
+              <h1 style="margin:0;font-family:{_FONT_SERIF};font-size:26px;font-weight:400;
+                         color:{_TEXT_HI};line-height:1.3;">
+                Hi {username} &mdash; we noticed something in your words.
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Intro copy -->
+          <tr>
+            <td style="padding-bottom:32px;">
+              <p style="margin:0 0 16px;font-family:{_FONT_SANS};font-size:14px;font-weight:300;
+                        color:{_TEXT_MID};line-height:1.75;">
+                Something you wrote recently gave us pause, and we want to make sure
+                you know that support is available right now &mdash; at any hour.
+              </p>
+              <p style="margin:0;font-family:{_FONT_SANS};font-size:14px;font-weight:300;
+                        color:{_TEXT_MID};line-height:1.75;">
+                If you are safe and just needed a space to express yourself, that is
+                completely okay. But if any part of you is struggling, please reach out
+                to one of the teams below.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Crisis helplines card -->
+          <tr>
+            <td style="padding-bottom:32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td bgcolor="{_RED_BG}"
+                      style="background-color:{_RED_BG};border:1px solid {_RED_BORDER};
+                             border-left:3px solid {_RED};border-radius:8px;
+                             padding:24px 28px;">
+
+                    <p style="margin:0 0 18px;font-family:{_FONT_SANS};font-size:11px;
+                               letter-spacing:0.12em;text-transform:uppercase;
+                               color:{_RED};font-weight:400;">
+                      Free &amp; confidential support &mdash; UK
+                    </p>
+
+                    <!-- Helpline rows -->
+                    {''.join(f"""
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                           style="margin-bottom:14px;">
+                      <tr>
+                        <td style="font-family:{_FONT_SANS};font-size:14px;font-weight:400;
+                                   color:{_TEXT_BODY};line-height:1.5;">
+                          <strong style="color:{_TEXT_HI};font-weight:500;">{name}</strong>
+                          &mdash; {detail}
+                        </td>
+                      </tr>
+                    </table>""" for name, detail in [
+                        ("Samaritans", "call or text <strong style='color:#e8e4dc;'>116 123</strong> &mdash; free, 24/7, confidential"),
+                        ("Shout", "text <strong style='color:#e8e4dc;'>SHOUT to 85258</strong> &mdash; free crisis text line, 24/7"),
+                        ("NHS urgent mental health", "call <strong style='color:#e8e4dc;'>111</strong> and select option 2"),
+                        ("CALM", "call <strong style='color:#e8e4dc;'>0800 58 58 58</strong> &mdash; men's mental health"),
+                        ("Papyrus", "call <strong style='color:#e8e4dc;'>0800 068 4141</strong> &mdash; under 35"),
+                        ("Emergency", "call <strong style='color:#e8e4dc;'>999</strong> if you are in immediate danger"),
+                    ])}
+
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                           style="border-top:1px solid {_RED_BORDER};margin-top:8px;padding-top:16px;">
+                      <tr>
+                        <td style="font-family:{_FONT_SERIF};font-size:14px;font-style:italic;
+                                   font-weight:400;color:{_TEXT_MID};line-height:1.7;
+                                   padding-top:16px;">
+                          You are not alone. These teams are trained to listen,
+                          and they want to hear from you.
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Closing copy -->
+          <tr>
+            <td style="padding-bottom:48px;">
+              <p style="margin:0;font-family:{_FONT_SANS};font-size:14px;font-weight:300;
+                        color:{_TEXT_MID};line-height:1.75;">
+                We&rsquo;re glad you&rsquo;re using MoodMap to process how you feel.
+                That takes courage.
+              </p>
+            </td>
+          </tr>
     """
+
+    html = _email_shell(
+        title="We're here for you — MoodMap",
+        preheader="Support resources are available right now, any time.",
+        body_html=body,
+    )
 
     try:
-        # Send the email
-        r = resend.Emails.send({
-            "from": "MoodMap <onboarding@resend.dev>", # Resend's default testing email
+        resend.Emails.send({
+            "from": "MoodMap <onboarding@resend.dev>",
             "to": to_email,
-            "subject": "Thinking of you 💙",
-            "html": html_content
+            "subject": "We're here for you — support resources inside",
+            "html": html,
         })
-        logger.info(f"✅ Nudge email sent successfully to {to_email}!")
+        logger.info("Crisis email sent to %s", to_email)
         return True
     except Exception as e:
-        logger.error(f"❌ Failed to send email: {str(e)}")
+        logger.error("Failed to send crisis email: %s", e)
         return False

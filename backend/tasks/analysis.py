@@ -9,9 +9,16 @@ from celery import shared_task
 from backend.database import SyncSessionLocal
 from backend.models.db_models import JournalEntry, MoodScore, AnalysisStatus
 from backend.services.encryption import decrypt
-from backend.ml.text_analyser import TextEmotionAnalyzer
-from backend.ml.voice_analyser import VoiceEmotionAnalyzer
-from backend.ml.fusion import FusionModel
+
+# ML models are optional — unavailable in CI where torch/librosa are not installed.
+# The task guard below (if not _ML_AVAILABLE) returns early without crashing.
+try:
+    from backend.ml.text_analyser import TextEmotionAnalyzer
+    from backend.ml.voice_analyser import VoiceEmotionAnalyzer
+    from backend.ml.fusion import FusionModel
+    _ML_AVAILABLE = True
+except ImportError:
+    _ML_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +40,14 @@ def _contains_crisis(text: str) -> bool:
 
 raw_endpoint = os.getenv("CLOUDFLARE_R2_ENDPOINT", "")
 
-# Initialize ML models OUTSIDE the task so they stay cached in the worker's RAM
-text_analyzer = TextEmotionAnalyzer()
-voice_analyzer = VoiceEmotionAnalyzer()
+# Initialize ML models OUTSIDE the task so they stay cached in the worker's RAM.
+# Only instantiated when the ML packages are present (i.e. real Celery workers).
+if _ML_AVAILABLE:
+    text_analyzer = TextEmotionAnalyzer()
+    voice_analyzer = VoiceEmotionAnalyzer()
+else:
+    text_analyzer = None
+    voice_analyzer = None
 
 # Initialize AWS S3/Cloudflare R2 Client for downloading audio
 s3_client = boto3.client(
@@ -53,8 +65,12 @@ BUCKET_NAME = "moodmap-audio"
 
 @shared_task(bind=True)
 def analyze_entry(self, entry_id: str):
+    if not _ML_AVAILABLE:
+        logger.warning("[analyze_entry] ML packages not installed — skipping analysis for entry %s", entry_id)
+        return {"status": "skipped", "reason": "ML unavailable"}
+
     logger.info(f"[analyze_entry] Starting full multimodal pipeline for entry: {entry_id}")
-    
+
     with SyncSessionLocal() as db:
         entry = db.query(JournalEntry).filter(JournalEntry.id == entry_id).first()
         if not entry:
