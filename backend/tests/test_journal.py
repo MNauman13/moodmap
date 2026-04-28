@@ -2,6 +2,7 @@ import pytest
 import uuid
 from unittest.mock import patch
 from backend.models.db_models import JournalEntry
+from backend.services.encryption import decrypt
 from sqlalchemy import select
 
 # This decorator tells Pytest that we need to run this asynchronously
@@ -42,7 +43,8 @@ async def test_create_journal_entry_success(client, db_session, mock_user_id):
         saved_entry = entry_result.scalar_one_or_none()
         
         assert saved_entry is not None
-        assert saved_entry.raw_text == payload["text"]
+        assert saved_entry.raw_text.startswith("enc:v1:")  # stored encrypted
+        assert decrypt(saved_entry.raw_text) == payload["text"]  # decrypts correctly
         assert saved_entry.word_count == 10 # "Today was a remarkably good day. I felt very productive."
         
         # Verify the Celery task was actually called with the correct database ID!

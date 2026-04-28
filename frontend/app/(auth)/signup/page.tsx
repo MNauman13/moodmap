@@ -6,39 +6,48 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export default function SignUp() {
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
+    const [email, setEmail]         = useState('')
+    const [password, setPassword]   = useState('')
+    const [consent, setConsent]     = useState(false)
     const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const [error, setError]         = useState<string | null>(null)
     const router = useRouter()
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault()
         setError(null)
-        setIsLoading(true)
 
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password
-        })
-
-        setIsLoading(false)
-
-        if (error) {
-            setError(error.message)
+        if (!consent) {
+            setError("You must accept the data processing terms to create an account.")
             return
         }
 
-        if (data) {
-            alert("Check your email for the confirmation link!")
-            router.push('/login')
+        setIsLoading(true)
+
+        const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+
+        if (signUpError) {
+            setError(signUpError.message)
+            setIsLoading(false)
+            return
         }
+
+        // Record explicit consent immediately after account creation.
+        // The session may not be fully established yet (email confirmation pending),
+        // so we store the intent in localStorage and apply it on first login via AuthProvider.
+        if (data?.user) {
+            localStorage.setItem("moodmap_pending_consent", "true")
+        }
+
+        setIsLoading(false)
+        alert("Check your email for the confirmation link!")
+        router.push('/login')
     }
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-[#0e0d0b] px-4 font-sans">
             <div className="w-full max-w-md rounded-2xl border border-[#1a1815] bg-[#0c0b09] p-8 shadow-2xl">
-                
+
                 <div className="mb-8 text-center">
                     <h2 className="font-['Lora'] text-3xl text-[#c8bfb0] mb-2">
                         Join MoodMap
@@ -55,32 +64,62 @@ export default function SignUp() {
                 )}
 
                 <form onSubmit={handleSignUp} className="space-y-4">
-                    <div>
-                        <input 
-                            type="email"
-                            placeholder="Email address"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full rounded-lg border border-[#2a2720] bg-[#141210] p-3.5 text-[14px] text-[#e8e4dc] placeholder-[#4a4438] transition-all focus:border-[#c8a96e] focus:outline-none focus:ring-1 focus:ring-[#c8a96e]"
-                            required
-                        />
-                    </div>
-                    <div>
-                        <input
-                            type="password"
-                            placeholder="Create a password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full rounded-lg border border-[#2a2720] bg-[#141210] p-3.5 text-[14px] text-[#e8e4dc] placeholder-[#4a4438] transition-all focus:border-[#c8a96e] focus:outline-none focus:ring-1 focus:ring-[#c8a96e]"
-                            required
-                        />
-                    </div>
+                    <input
+                        type="email"
+                        placeholder="Email address"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full rounded-lg border border-[#2a2720] bg-[#141210] p-3.5 text-[14px] text-[#e8e4dc] placeholder-[#4a4438] transition-all focus:border-[#c8a96e] focus:outline-none focus:ring-1 focus:ring-[#c8a96e]"
+                        required
+                    />
+                    <input
+                        type="password"
+                        placeholder="Create a password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full rounded-lg border border-[#2a2720] bg-[#141210] p-3.5 text-[14px] text-[#e8e4dc] placeholder-[#4a4438] transition-all focus:border-[#c8a96e] focus:outline-none focus:ring-1 focus:ring-[#c8a96e]"
+                        required
+                    />
+
+                    {/* GDPR Art. 9 — explicit consent for special-category data */}
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                        <div className="relative mt-0.5 shrink-0">
+                            <input
+                                type="checkbox"
+                                checked={consent}
+                                onChange={(e) => setConsent(e.target.checked)}
+                                className="sr-only peer"
+                            />
+                            <div className={`w-4 h-4 rounded border transition-all ${
+                                consent
+                                    ? "bg-[#c8a96e] border-[#c8a96e]"
+                                    : "bg-[#141210] border-[#2a2720] group-hover:border-[#4a4438]"
+                            }`}>
+                                {consent && (
+                                    <svg className="w-4 h-4 text-[#0e0d0b]" viewBox="0 0 16 16" fill="none">
+                                        <path d="M3 8l3.5 3.5 6.5-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                )}
+                            </div>
+                        </div>
+                        <span className="text-[12px] text-[#6b6357] leading-relaxed">
+                            I consent to MoodMap processing my mood, journal, and voice data
+                            to provide emotional insights. This data is classified as{" "}
+                            <span className="text-[#8a8070]">special-category health data</span>{" "}
+                            under GDPR Art. 9. I can withdraw this consent at any time in Account
+                            Settings.{" "}
+                            <Link href="/account" className="text-[#c8a96e] hover:underline underline-offset-2">
+                                Privacy policy
+                            </Link>
+                        </span>
+                    </label>
+
                     <button
                         type="submit"
-                        disabled={isLoading}
-                        className="mt-2 w-full rounded-lg bg-[#c8a96e] p-3.5 text-[14px] font-medium text-[#0e0d0b] transition-all hover:bg-[#b89b60] active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+                        disabled={isLoading || !consent}
+                        className="mt-2 w-full rounded-lg bg-[#c8a96e] p-3.5 text-[14px] font-medium text-[#0e0d0b] transition-all hover:bg-[#b89b60] active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed"
                     >
-                        {isLoading ? "Creating account..." : "Sign Up"}
+                        {isLoading ? "Creating account…" : "Sign Up"}
                     </button>
                 </form>
 

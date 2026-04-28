@@ -1,12 +1,19 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Session } from '@supabase/supabase-js'
 
-// The routes that do NOT require authentication
+// Routes safe for unauthenticated users. Anything else requires a session.
 const PUBLIC_ROUTES = ['/login', '/signup', '/']
+
+// Only allow same-origin paths from the ?next= param to prevent open-redirect.
+function safeRedirectTarget(raw: string | null): string {
+    if (!raw) return '/dashboard'
+    if (!raw.startsWith('/') || raw.startsWith('//')) return '/dashboard'
+    return raw
+}
 
 interface AuthContextType {
     session: Session | null
@@ -20,26 +27,59 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const [isLoading, setIsLoading] = useState(true)
     const router = useRouter()
     const pathname = usePathname()
+    const searchParams = useSearchParams()
 
     useEffect(() => {
         let mounted = true
 
-        // 1. Check initial session
+        const handleRouting = (currentSession: Session | null, currentPath: string) => {
+            const isPublicRoute = PUBLIC_ROUTES.includes(currentPath)
+
+            if (!currentSession && !isPublicRoute) {
+                // Not logged in trying to access a private page — preserve where they wanted to go
+                const next = encodeURIComponent(currentPath)
+                router.replace(`/login?next=${next}`)
+            } else if (currentSession && isPublicRoute && currentPath !== '/') {
+                // Logged in on /login or /signup — bounce them onward
+                const target = safeRedirectTarget(searchParams.get('next'))
+                router.replace(target)
+            }
+        }
+
+        const applyPendingConsent = async (session: Session) => {
+            const pending = localStorage.getItem("moodmap_pending_consent")
+            if (pending !== "true") return
+            try {
+                await fetch("/api/v1/account/consent", {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${session.access_token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ consent_given: true }),
+                })
+                localStorage.removeItem("moodmap_pending_consent")
+            } catch {
+                // Non-fatal — user can re-enable consent in Account Settings
+            }
+        }
+
         const initializeAuth = async () => {
             const { data: { session } } = await supabase.auth.getSession()
             if (mounted) {
                 setSession(session)
                 setIsLoading(false)
+                if (session) await applyPendingConsent(session)
                 handleRouting(session, pathname)
             }
         }
 
         initializeAuth()
 
-        // 2. Listen for auth changes (e.g., logging in, logging out, token refresh)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             if (mounted) {
                 setSession(session)
+                if (session) await applyPendingConsent(session)
                 handleRouting(session, pathname)
             }
         })
@@ -51,21 +91,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname])
 
-    // 3. The Routing Logic
-    const handleRouting = (currentSession: Session | null, currentPath: string) => {
-        const isPublicRoute = PUBLIC_ROUTES.includes(currentPath)
-
-        if (!currentSession && !isPublicRoute) {
-            // Not logged in, trying to access a private page -> send to login
-            router.replace('/login')
-        } else if (currentSession && isPublicRoute && currentPath !== '/') {
-            // Logged in, trying to access login/signup -> send to dashboard
-            // (We allow '/' if you have a marketing landing page, otherwise remove `&& currentPath !== '/'`)
-            router.replace('/dashboard')
-        }
-    }
-
-    // 4. The Loading Screen
     if (isLoading) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#0e0d0b]">

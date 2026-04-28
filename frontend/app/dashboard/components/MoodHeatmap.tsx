@@ -93,7 +93,7 @@ export default function MoodHeatmap({ data, loading }: Props) {
   return (
     <div className="bg-[#0c0b09] border border-[#1a1815] rounded-xl p-6">
       <p className="font-['Lora'] text-[15px] text-[#c8bfb0] mb-1">8-week calendar</p>
-      <p className="text-[12px] text-[#4a4438] font-light mb-5">
+      <p className="text-[12px] text-[#6b6357] font-light mb-5">
         Each square is one day — hover to see your score
       </p>
 
@@ -101,7 +101,7 @@ export default function MoodHeatmap({ data, loading }: Props) {
         <div className={`${styles.shimmer} h-[120px] w-full rounded-lg`} />
       ) : data.length === 0 ? (
         <div className="h-[100px] flex items-center justify-center">
-          <p className="text-[13px] text-[#4a4438] font-light">
+          <p className="text-[13px] text-[#6b6357] font-light">
             Start journalling to fill your calendar
           </p>
         </div>
@@ -116,7 +116,7 @@ export default function MoodHeatmap({ data, loading }: Props) {
                 return (
                   <div key={i} className="flex-1">
                     {lbl && (
-                      <span className="text-[10px] text-[#4a4438] uppercase tracking-wider">
+                      <span className="text-[10px] text-[#6b6357] uppercase tracking-wider">
                         {lbl.label}
                       </span>
                     )}

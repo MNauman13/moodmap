@@ -1,8 +1,18 @@
 import os
 import logging
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Try the backend/.env file explicitly (next to this config module),
+# then fall back to dotenv's normal search-from-cwd behaviour. The
+# explicit path matters when pytest is run from the project root —
+# the cwd-relative search misses backend/.env otherwise.
+_BACKEND_ENV = Path(__file__).resolve().parent / ".env"
+if _BACKEND_ENV.is_file():
+    load_dotenv(_BACKEND_ENV)
+else:
+    load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +27,7 @@ _REQUIRED = [
     "CLOUDFLARE_R2_BUCKET_NAME",
     "ANTHROPIC_API_KEY",
     "RESEND_API_KEY",
+    "FIELD_ENCRYPTION_KEY",
 ]
 
 _OPTIONAL = {
@@ -26,6 +37,11 @@ _OPTIONAL = {
 
 
 def validate_env() -> None:
+    # Skip validation under pytest — the test harness in conftest.py supplies
+    # in-memory fakes (SQLite DB, mocked auth/Celery) for everything these
+    # vars configure, so a missing ANTHROPIC_API_KEY shouldn't kill the suite.
+    if "pytest" in sys.modules:
+        return
     missing = [k for k in _REQUIRED if not os.getenv(k)]
     if missing:
         raise RuntimeError(

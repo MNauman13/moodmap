@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { insightsApi, journalApi } from "@/lib/api";
+import { dashboardApi } from "@/lib/api";
 import type { InsightsResponse, JournalEntryResponse, TrendDataPoint } from "@/lib/api";
 import MoodTrendChart, { scoreToMeta } from "./components/MoodTrendChart";
 import EmotionBreakdown from "./components/EmotionBreakdown";
 import MoodHeatmap from "./components/MoodHeatmap";
 import NudgesWidget from "@/components/NudgesWidget";
+import Navbar from "@/components/Navbar";
 import styles from "./dashboard.module.css";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -71,7 +72,7 @@ interface StatCellProps {
 function StatCell({ label, loading, value, sub, valueColor, barWidth, barColor }: StatCellProps) {
   return (
     <div className={`bg-[#0e0d0b] px-5 py-[1.4rem] transition-colors duration-200 ${styles.statCell}`}>
-      <p className="text-[10px] tracking-[0.12em] uppercase text-[#4a4438] mb-2">{label}</p>
+      <p className="text-[10px] tracking-[0.12em] uppercase text-[#7d7568] mb-2">{label}</p>
       {loading ? (
         <Shimmer className="h-[22px] w-20 mt-1" />
       ) : (
@@ -79,7 +80,7 @@ function StatCell({ label, loading, value, sub, valueColor, barWidth, barColor }
           <p className="font-['Lora'] text-[22px] leading-none" style={{ color: valueColor ?? "#e8e4dc" }}>
             {value}
           </p>
-          <p className="text-[11px] text-[#6b6357] font-light mt-1">{sub}</p>
+          <p className="text-[11px] text-[#8a8070] font-light mt-1">{sub}</p>
           {barWidth !== undefined && (
             <div className="h-[2px] bg-[#1a1815] rounded-sm mt-2 overflow-hidden w-full">
               <div
@@ -111,18 +112,19 @@ export default function DashboardPage() {
   const [error,        setError]        = useState<string | null>(null);
   const [justFinished, setJustFinished] = useState(false);
 
+  // Single backend round-trip: insights + recent entries via /dashboard/summary.
   async function loadData() {
-    const [ins, list] = await Promise.all([
-      insightsApi.get(),
-      journalApi.list(1, 3),
-    ]);
-    setInsights(ins);
-    setEntries(list.entries);
+    const summary = await dashboardApi.summary();
+    setInsights(summary.insights);
+    setEntries(summary.recent_entries);
   }
 
   useEffect(() => {
-    Promise.all([insightsApi.get(), journalApi.list(1, 3)])
-      .then(([ins, list]) => { setInsights(ins); setEntries(list.entries); })
+    dashboardApi.summary()
+      .then((summary) => {
+        setInsights(summary.insights);
+        setEntries(summary.recent_entries);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load dashboard"))
       .finally(() => setLoading(false));
   }, []);
@@ -201,11 +203,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#0e0d0b] text-[#e8e4dc]" style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
-      {/*
-        Fonts: loaded via next/font in layout.tsx for the project font.
-        Lora + DM Sans are loaded here as a scoped import since they're
-        specific to the dashboard/journal aesthetic pages only.
-      */}
+      <Navbar />
       <div className="grid px-5" style={{ gridTemplateColumns: "1fr min(1040px, 100%) 1fr" }}>
         <div className="col-start-2 py-12 pb-24">
 
@@ -326,7 +324,7 @@ export default function DashboardPage() {
               loading={loading}
               value={dominantEmotion?.name ?? "—"}
               sub="this month"
-              valueColor={dominantEmotion ? EMOTION_COLORS[dominantEmotion.name] ?? "#c8a96e" : "#4a4438"}
+              valueColor={dominantEmotion ? EMOTION_COLORS[dominantEmotion.name] ?? "#c8a96e" : "#6b6357"}
             />
           </motion.div>
 
@@ -339,9 +337,7 @@ export default function DashboardPage() {
             <p className={`text-[10px] tracking-[0.14em] uppercase text-[#6b6357] mb-5 flex items-center gap-3 ${styles.sectionTitle}`}>
               30-day mood landscape
             </p>
-            <div className="grid gap-6 mb-12"
-              style={{ gridTemplateColumns: "1fr 340px" }}
-            >
+            <div className="grid gap-6 mb-12 grid-cols-[1fr_340px] max-[860px]:grid-cols-1">
               <MoodTrendChart data={insights?.trend_data ?? []} loading={loading} />
               <EmotionBreakdown data={insights?.emotion_breakdown ?? []} loading={loading} />
             </div>
@@ -381,8 +377,8 @@ export default function DashboardPage() {
                 ))
               ) : entries.length === 0 ? (
                 <div className="py-12 flex flex-col items-center gap-2">
-                  <div className="w-9 h-9 rounded-full border border-[#2a2720] flex items-center justify-center text-[#4a4438] text-sm">◌</div>
-                  <p className="text-[13px] text-[#4a4438] font-light">No entries yet</p>
+                  <div className="w-9 h-9 rounded-full border border-[#2a2720] flex items-center justify-center text-[#6b6357] text-sm">◌</div>
+                  <p className="text-[13px] text-[#6b6357] font-light">No entries yet</p>
                   <Link href="/journal" className="text-[12px] text-[#c8a96e] hover:underline no-underline">
                     Start your first entry →
                   </Link>
@@ -412,7 +408,7 @@ export default function DashboardPage() {
                               className="text-[20px] font-normal text-[#c8bfb0] leading-none">
                               {d.getDate()}
                             </p>
-                            <p className="text-[9px] uppercase tracking-wider text-[#4a4438] mt-1">
+                            <p className="text-[9px] uppercase tracking-wider text-[#6b6357] mt-1">
                               {d.toLocaleDateString("en-GB", { month: "short" })}
                             </p>
                           </div>
@@ -424,7 +420,7 @@ export default function DashboardPage() {
                               {entry.text}
                             </p>
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              <span className="text-[11px] text-[#4a4438] font-light">
+                              <span className="text-[11px] text-[#6b6357] font-light">
                                 {timeAgo(entry.created_at)}
                               </span>
                               {/* Fix 3: explicit : string type */}
@@ -449,7 +445,7 @@ export default function DashboardPage() {
                               {meta.label}
                             </div>
                           ) : (
-                            <div className="self-center text-[10px] px-3 py-1 rounded-full border border-[#1a1815] text-[#4a4438] font-light whitespace-nowrap">
+                            <div className="self-center text-[10px] px-3 py-1 rounded-full border border-[#1a1815] text-[#6b6357] font-light whitespace-nowrap">
                               {failed ? "Failed" : "Analysing…"}
                             </div>
                           )}
@@ -469,7 +465,7 @@ export default function DashboardPage() {
                 className="mt-6"
               >
                 <Link href="/journal"
-                  className="text-[12px] text-[#4a4438] no-underline tracking-wider transition-colors duration-150 hover:text-[#c8a96e]">
+                  className="text-[12px] text-[#6b6357] no-underline tracking-wider transition-colors duration-150 hover:text-[#c8a96e]">
                   View all entries →
                 </Link>
               </motion.div>

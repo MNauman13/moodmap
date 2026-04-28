@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { journalApi, type JournalEntryResponse, type MoodScores } from "@/lib/api"
+import Navbar from "@/components/Navbar"
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -58,7 +59,7 @@ function EmotionBar({ label, value, color }: { label: string; value: number; col
           transition={{ duration: 0.6, ease: "easeOut" }}
         />
       </div>
-      <span className="w-8 text-right text-[10px] text-[#4a4438]">
+      <span className="w-8 text-right text-[10px] text-[#6b6357]">
         {Math.round(value * 100)}%
       </span>
     </div>
@@ -135,9 +136,8 @@ export default function JournalEntryPage() {
   const d = new Date(entry.created_at)
 
   return (
-    <div className="min-h-screen bg-[#0e0d0b] text-[#e8e4dc]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap');`}</style>
-
+    <div className="min-h-screen bg-[#0e0d0b] text-[#e8e4dc]" style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif" }}>
+      <Navbar />
       <div className="grid px-5" style={{ gridTemplateColumns: "1fr min(720px, 100%) 1fr" }}>
         <div className="col-start-2 py-12 pb-24">
 
@@ -149,14 +149,14 @@ export default function JournalEntryPage() {
           >
             <Link
               href="/dashboard"
-              className="text-[12px] text-[#4a4438] no-underline hover:text-[#c8a96e] transition-colors"
+              className="text-[12px] text-[#6b6357] no-underline hover:text-[#c8a96e] transition-colors"
             >
               ← Dashboard
             </Link>
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="text-[12px] text-[#4a4438] hover:text-[#b85c4a] transition-colors disabled:opacity-50"
+              className="text-[12px] text-[#6b6357] hover:text-[#b85c4a] transition-colors disabled:opacity-50"
             >
               {deleting ? "Deleting…" : "Delete entry"}
             </button>
@@ -206,7 +206,7 @@ export default function JournalEntryPage() {
               <p className="text-[16px] leading-[1.85] text-[#c8bfb0] whitespace-pre-wrap">
                 {entry.text}
               </p>
-              <p className="mt-5 text-[11px] text-[#4a4438] font-light" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <p className="mt-5 text-[11px] text-[#6b6357] font-light" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 {entry.word_count} words
               </p>
             </div>
@@ -263,7 +263,7 @@ export default function JournalEntryPage() {
                 {/* Fused score */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-[#4a4438] mb-1">Overall mood</p>
+                    <p className="text-[10px] uppercase tracking-wider text-[#6b6357] mb-1">Overall mood</p>
                     <p
                       className="font-['Lora'] text-[28px] leading-none"
                       style={{ color: scoreColor }}
@@ -284,7 +284,7 @@ export default function JournalEntryPage() {
                 {/* Dominant emotion */}
                 {ms.dominant_emotion && (
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-[#4a4438] mb-1">Dominant emotion</p>
+                    <p className="text-[10px] uppercase tracking-wider text-[#6b6357] mb-1">Dominant emotion</p>
                     <span
                       className="text-[13px] capitalize font-medium"
                       style={{ color: EMOTION_COLORS[ms.dominant_emotion] ?? "#c8a96e" }}
@@ -292,7 +292,7 @@ export default function JournalEntryPage() {
                       {ms.dominant_emotion}
                     </span>
                     {ms.confidence !== null && ms.confidence !== undefined && (
-                      <span className="ml-2 text-[11px] text-[#4a4438]">
+                      <span className="ml-2 text-[11px] text-[#6b6357]">
                         ({Math.round(ms.confidence * 100)}% confidence)
                       </span>
                     )}
@@ -301,7 +301,7 @@ export default function JournalEntryPage() {
 
                 {/* Emotion bars */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-[#4a4438] mb-4">Emotion breakdown</p>
+                  <p className="text-[10px] uppercase tracking-wider text-[#6b6357] mb-4">Emotion breakdown</p>
                   <div className="space-y-3">
                     {emotions.map(({ key, label }) => {
                       const val = ms[key as keyof MoodScores] as number | null
@@ -321,7 +321,7 @@ export default function JournalEntryPage() {
                 {/* Voice data */}
                 {ms.voice_valence !== null && ms.voice_valence !== undefined && (
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-[#4a4438] mb-4">Voice analysis</p>
+                    <p className="text-[10px] uppercase tracking-wider text-[#6b6357] mb-4">Voice analysis</p>
                     <div className="grid grid-cols-3 gap-4">
                       {[
                         { label: "Valence", value: ms.voice_valence },
@@ -330,7 +330,7 @@ export default function JournalEntryPage() {
                       ].map(({ label, value }) => (
                         value !== null && value !== undefined ? (
                           <div key={label} className="rounded-lg border border-[#141210] bg-[#0e0d0b] px-4 py-3">
-                            <p className="text-[10px] uppercase tracking-wider text-[#4a4438] mb-1">{label}</p>
+                            <p className="text-[10px] uppercase tracking-wider text-[#6b6357] mb-1">{label}</p>
                             <p className="text-[18px] font-light text-[#8a8070]">
                               {value > 0 ? "+" : ""}{value.toFixed(2)}
                             </p>

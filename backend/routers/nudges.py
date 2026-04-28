@@ -1,5 +1,4 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, Field
@@ -8,18 +7,17 @@ import logging
 
 from backend.database import get_db
 from backend.models.db_models import Nudge, AgentState
-from backend.models.schemas import NudgeResponse
 from backend.routers.user import get_current_user_id
-from backend.services.cache import cache_get, cache_set, cache_delete
+from backend.services.cache import cache_get, cache_set, cache_delete_pattern
+from backend.services.encryption import decrypt
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/nudges", tags=["Nudges"])
 
-_NUDGES_TTL = 60  # 1 minute
+_NUDGES_TTL = 60  # seconds
 
 
-# Pydantic Schema
 class NudgeRating(BaseModel):
     # 1 = Helpful, -1 = Not Helpful, 0 = Dismissed/Neutral
     rating: int = Field(..., ge=-1, le=1)
@@ -56,7 +54,7 @@ def update_intervention_weights(current_weights: dict, nudge_type: str, rating: 
     return weights
 
 
-@router.get("", response_model=List[NudgeResponse], summary="List nudges for the current user")
+@router.get("", summary="List nudges for the current user (paginated)")
 async def list_nudges(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=50),
@@ -66,10 +64,11 @@ async def list_nudges(
     cache_key = f"nudges:{current_user_id}:p{page}:s{page_size}"
     cached = cache_get(cache_key)
     if cached is not None:
-        return [NudgeResponse(**n) for n in cached]
+        return cached
 
     user_uuid = uuid.UUID(current_user_id)
     offset = (page - 1) * page_size
+
     result = await db.execute(
         select(Nudge)
         .where(Nudge.user_id == user_uuid)
@@ -78,10 +77,23 @@ async def list_nudges(
         .limit(page_size)
     )
     nudges = result.scalars().all()
-    response = [NudgeResponse.from_db(n) for n in nudges]
 
-    cache_set(cache_key, [n.model_dump(mode="json") for n in response], ttl_seconds=_NUDGES_TTL)
-    return response
+    payload = {
+        "nudges": [
+            {
+                "id": str(n.id),
+                "nudge_type": n.nudge_type,
+                "content": decrypt(n.content) if n.content else None,
+                "rating": n.rating,
+                "sent_at": n.sent_at.isoformat() if n.sent_at else None,
+            }
+            for n in nudges
+        ],
+        "page": page,
+        "page_size": page_size,
+    }
+    cache_set(cache_key, payload, ttl_seconds=_NUDGES_TTL)
+    return payload
 
 
 @router.post("/{nudge_id}/rate", summary="Rate a proactive nudge")
@@ -122,8 +134,8 @@ async def rate_nudge(
     agent_state.intervention_weights = new_weights
     await db.commit()
 
-    # Invalidate cached nudge list so next fetch reflects updated rating
-    cache_delete(f"nudges:{current_user_id}:p1:s20")
+    # Invalidate all cached pages for this user — pattern covers every page/size combo
+    cache_delete_pattern(f"nudges:{current_user_id}:*")
 
-    logger.info(f"Updated weights for user {current_user_id}: {new_weights}")
+    logger.info("Updated weights for user %s: %s", current_user_id, new_weights)
     return {"message": "Rating saved and agent weights updated", "new_weights": new_weights}

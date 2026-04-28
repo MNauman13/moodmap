@@ -42,7 +42,7 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: #1a1815;
+  background: #2a2720;
 }
 
 /* ── Stat cell hover ─────────────────────────────────────────── */
@@ -62,7 +62,7 @@
 
 /* ── Recharts SVG overrides — can't target these with Tailwind ─ */
 .chartWrap :global(.recharts-cartesian-axis-tick text) {
-  fill: #4a4438 !important;
+  fill: #7d7568 !important;
   font-size: 11px !important;
 }
 .chartWrap :global(.recharts-reference-line line) {

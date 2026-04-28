@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/lib/supabase";
+import { journalApi, uploadAudioToR2 } from "@/lib/api";
+import Navbar from "@/components/Navbar";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type RecordingState = "idle" | "recording" | "recorded" | "uploading";
@@ -142,33 +143,13 @@ export default function JournalPage() {
     setRecordingState("uploading");
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      // 1. Get presigned URL from our API
-      const presignRes = await fetch("/api/v1/journal/presigned-url", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json" ,
-          "Authorization": `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({ file_extension: "webm" }),
-      });
-      if (!presignRes.ok) throw new Error("Failed to get upload URL");
-      const { upload_url, object_key } = await presignRes.json();
-
-      // 2. Upload directly to R2 — no data through our server
-      const uploadRes = await fetch(upload_url, {
-        method: "PUT",
-        headers: { "Content-Type": "audio/webm" },
-        body: audioBlob,
-      });
-      if (!uploadRes.ok) throw new Error("R2 upload failed");
-
-      setAudioObjectKey(object_key);
+      const objectKey = await uploadAudioToR2(audioBlob, "webm");
+      setAudioObjectKey(objectKey);
       setRecordingState("recorded");
-      return object_key;
+      return objectKey;
     } catch (err) {
       console.error("Audio upload failed:", err);
+      setErrorMessage("Audio upload failed. Please try again.");
       setRecordingState("recorded");
       return null;
     }
@@ -185,28 +166,16 @@ export default function JournalPage() {
       let audioKey = audioObjectKey;
       if (audioBlob && !audioObjectKey) {
         audioKey = await uploadAudio();
+        if (!audioKey) {
+          throw new Error("Audio upload failed. Please try again.");
+        }
       }
 
-      // Grab the active session token from the browser again
-      const { data: { session } } = await supabase.auth.getSession()
-
-      const res = await fetch("/api/v1/journal", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({
-          text: text.trim(),
-          audio_key: audioKey,
-          mood_tags: selectedTags,
-        }),
+      await journalApi.create({
+        text: text.trim(),
+        audio_key: audioKey,
+        mood_tags: selectedTags,
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to save entry");
-      }
 
       setSubmitState("success");
       setTimeout(() => router.push("/dashboard"), 1800);
@@ -329,7 +298,7 @@ export default function JournalPage() {
           bottom: 0.6rem;
           right: 0;
           font-size: 11px;
-          color: #4a4438;
+          color: #6b6357;
           font-weight: 300;
           transition: color 0.2s;
         }
@@ -340,7 +309,7 @@ export default function JournalPage() {
           font-size: 10px;
           letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: #6b6357;
+          color: #8a8070;
           font-family: 'DM Sans', sans-serif;
           font-weight: 400;
           margin-bottom: 1rem;
@@ -370,7 +339,7 @@ export default function JournalPage() {
           user-select: none;
         }
         .mood-tag:hover {
-          border-color: #4a4438;
+          border-color: #6b6357;
           color: #a09080;
         }
         .mood-tag.selected {
@@ -475,7 +444,7 @@ export default function JournalPage() {
         .discard-btn {
           background: none;
           border: none;
-          color: #4a4438;
+          color: #6b6357;
           font-family: 'DM Sans', sans-serif;
           font-size: 12px;
           cursor: pointer;
@@ -513,10 +482,11 @@ export default function JournalPage() {
           align-items: center;
           justify-content: space-between;
           gap: 1rem;
+          flex-wrap: wrap;
         }
         .submit-left {
           font-size: 13px;
-          color: #4a4438;
+          color: #6b6357;
           font-weight: 300;
         }
         .submit-btn {
@@ -613,6 +583,8 @@ export default function JournalPage() {
           to { opacity: 1; }
         }
       `}</style>
+
+      <Navbar />
 
       {/* Success overlay */}
       <AnimatePresence>

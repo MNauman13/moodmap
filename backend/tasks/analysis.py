@@ -1,12 +1,14 @@
 import os
 import logging
 import tempfile
+from datetime import datetime, timezone
 import boto3
 from botocore.config import Config
 from celery import shared_task
 
 from backend.database import SyncSessionLocal
 from backend.models.db_models import JournalEntry, MoodScore, AnalysisStatus
+from backend.services.encryption import decrypt
 from backend.ml.text_analyser import TextEmotionAnalyzer
 from backend.ml.voice_analyser import VoiceEmotionAnalyzer
 from backend.ml.fusion import FusionModel
@@ -30,7 +32,6 @@ def _contains_crisis(text: str) -> bool:
 
 
 raw_endpoint = os.getenv("CLOUDFLARE_R2_ENDPOINT", "")
-logger.info(f"DEBUG - R2 Endpoint loaded as: '{raw_endpoint}'")
 
 # Initialize ML models OUTSIDE the task so they stay cached in the worker's RAM
 text_analyzer = TextEmotionAnalyzer()
@@ -60,10 +61,19 @@ def analyze_entry(self, entry_id: str):
             logger.error("Entry not found in database.")
             return {"status": "error"}
 
+        # Mark the work in flight so the SSE/status endpoints can show
+        # "Analysing…" instead of the user staring at a stale "queued"
+        # for the 5–15s the ML pipeline takes.
+        entry.status = AnalysisStatus.PROCESSING
+        db.commit()
+
         try:
+            # Decrypt before any plaintext operation (ML analysis, crisis check)
+            plain_text = decrypt(entry.raw_text)
+
             # --- 1. TEXT ANALYSIS ---
             logger.info("Running Text Analysis...")
-            text_results = text_analyzer.analyze(entry.raw_text)
+            text_results = text_analyzer.analyze(plain_text)
             text_scores = text_results.get("scores", {})
             dominant_emotion = text_results.get("dominant_emotion", "neutral")
             
@@ -96,7 +106,7 @@ def analyze_entry(self, entry_id: str):
 
             # --- 4. SAVE TO TIMESCALEDB ---
             mood_score = MoodScore(
-                time=entry.created_at,
+                time=datetime.now(timezone.utc),  # use actual analysis time, not creation time — avoids PK collision on concurrent entries
                 user_id=entry.user_id,
                 entry_id=entry.id,
                 
@@ -124,14 +134,13 @@ def analyze_entry(self, entry_id: str):
             db.add(mood_score)
             entry.status = AnalysisStatus.COMPLETED
             user_id = str(entry.user_id)
-            raw_text = entry.raw_text
             db.commit()
 
             logger.info(f"[analyze_entry] Success! Fused Score: {fused_score} | Dominant: {dominant_emotion}")
 
             # Immediate intervention: check for crisis keywords or severe distress
             # Lazy imports avoid circular-import issues at module load time
-            if _contains_crisis(raw_text):
+            if _contains_crisis(plain_text):
                 logger.warning(f"Crisis keywords detected in entry {entry_id} — triggering immediate crisis nudge")
                 from backend.tasks.scheduler import run_immediate_crisis_nudge
                 run_immediate_crisis_nudge.delay(user_id)

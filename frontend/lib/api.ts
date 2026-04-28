@@ -168,10 +168,26 @@ export const insightsApi = {
   /**
    * Fetches from GET /api/v1/insights
    * Returns trend_data + emotion_breakdown + calendar_data for the last 30 days.
-   * Note: there is no Next.js route handler for insights yet — you need to add one.
-   * See the note at the bottom of this file.
+   * Most pages should prefer dashboardApi.summary() — it returns the same
+   * insights plus recent entries in a single round-trip.
    */
   get: () => apiFetch<InsightsResponse>("/insights"),
+};
+
+// ── Dashboard API ──────────────────────────────────────────────
+
+/**
+ * Mirrors backend.routers.dashboard.DashboardSummaryResponse.
+ * Replaces the old two-call pattern (insightsApi.get + journalApi.list)
+ * with a single backend round-trip.
+ */
+export interface DashboardSummaryResponse {
+  insights: InsightsResponse;
+  recent_entries: JournalEntryResponse[];
+}
+
+export const dashboardApi = {
+  summary: () => apiFetch<DashboardSummaryResponse>("/dashboard/summary"),
 };
 
 // ── Audio upload ───────────────────────────────────────────────
@@ -201,25 +217,33 @@ export async function uploadAudioToR2(audioBlob: Blob, fileExtension = "webm"): 
 
 // ── Nudges API Types ──────────────────────────────────────────
 
+/**
+ * Mirrors the dict shape returned by GET /api/v1/nudges in nudges.py.
+ * Note: backend field is `sent_at` (matching the DB column), not `created_at`.
+ */
 export interface Nudge {
   id: string;
-  user_id: string;
   nudge_type: string;
   content: string;
-  rating: number | null; // 1 for helpful, -1 for unhelpful, null for unrated
-  created_at: string;
+  rating: number | null; // 1 helpful, -1 unhelpful, null unrated
+  sent_at: string | null;
+}
+
+export interface NudgeListResponse {
+  nudges: Nudge[];
+  page: number;
+  page_size: number;
 }
 
 // ── Nudges API Helpers ────────────────────────────────────────
 
 export const nudgesApi = {
-  // Fetch the user's history of nudges
-  list: () => apiFetch<Nudge[]>("/nudges"),
+  list: (page = 1, pageSize = 20) =>
+    apiFetch<NudgeListResponse>(`/nudges?page=${page}&page_size=${pageSize}`),
 
-  // Rate a specific nudge (+1 or -1)
   rate: (id: string, rating: number) =>
-    apiFetch<{ status: string; new_weights: Record<string, number> }>(`/nudges/${id}/rate`, {
-      method: "POST",
-      body: JSON.stringify({ rating }),
-    }),
+    apiFetch<{ message: string; new_weights: Record<string, number> }>(
+      `/nudges/${id}/rate`,
+      { method: "POST", body: JSON.stringify({ rating }) },
+    ),
 };

@@ -1,12 +1,30 @@
 import type { NextConfig } from "next";
 
+/**
+ * BACKEND_URL is the host:port FastAPI listens on.
+ *   - dev:  http://127.0.0.1:8000
+ *   - prod: set in the deploy environment (e.g. http://api:8000 inside docker compose)
+ *
+ * Specific route handlers under app/api/v1/* take priority over the rewrite,
+ * so the existing journal/insights handlers keep working untouched. Every
+ * other /api/v1/* path (nudges, dashboard, reports, …) is proxied straight
+ * to FastAPI — that closes the gap where /api/v1/nudges had no handler and
+ * was 404-ing silently.
+ */
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
+
 const nextConfig: NextConfig = {
   compress: true,
   reactStrictMode: true,
 
-  // React Compiler: stable in Next.js 16 — automatically memoises components
-  // and eliminates unnecessary re-renders without manual useMemo/useCallback.
-  //reactCompiler: true,
+  async rewrites() {
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${BACKEND_URL}/api/v1/:path*`,
+      },
+    ];
+  },
 
   async headers() {
     return [
@@ -32,16 +50,6 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // ── Medium-lived cache for public/ assets (images, icons) ─
-      // {
-      //   source: "/(:path(favicon.ico|.*\\.png|.*\\.jpg|.*\\.svg|.*\\.webp))",
-      //   headers: [
-      //     {
-      //       key: "Cache-Control",
-      //       value: "public, max-age=86400, stale-while-revalidate=604800",
-      //     },
-      //   ],
-      // },
     ];
   },
 };

@@ -27,6 +27,12 @@ from backend.services.storage import r2_storage
 router = APIRouter(prefix="/api/v1/dashboard", tags=["Dashboard"])
 
 
+def _as_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 class DashboardSummaryResponse(BaseModel):
     insights: InsightsResponse
     recent_entries: List[JournalEntryResponse]
@@ -54,7 +60,7 @@ async def get_dashboard_summary(
     all_scores = scores_result.scalars().all()
 
     thirty_days_ago = now - timedelta(days=30)
-    scores_30 = [s for s in all_scores if s.time >= thirty_days_ago]
+    scores_30 = [s for s in all_scores if _as_utc(s.time) >= thirty_days_ago]
 
     # Recent entries (last 3) with mood scores eager-loaded
     entries_result = await db.execute(
@@ -70,7 +76,7 @@ async def get_dashboard_summary(
     daily_30: dict = defaultdict(list)
     emotion_counts: dict = defaultdict(int)
     for score in scores_30:
-        day_str = score.time.strftime("%Y-%m-%d")
+        day_str = _as_utc(score.time).strftime("%Y-%m-%d")
         daily_30[day_str].append(score.fused_score)
         if score.dominant_emotion:
             emotion_counts[score.dominant_emotion] += 1
@@ -86,7 +92,7 @@ async def get_dashboard_summary(
 
     daily_56: dict = defaultdict(list)
     for score in all_scores:
-        day_str = score.time.strftime("%Y-%m-%d")
+        day_str = _as_utc(score.time).strftime("%Y-%m-%d")
         daily_56[day_str].append(score.fused_score)
 
     calendar_data = sorted(

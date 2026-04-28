@@ -3,14 +3,13 @@ from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 import uuid
 import logging
 
 from backend.database import get_db
-from backend.routers.user import get_current_user_id as get_current_user
+from backend.routers.user import get_current_user, AuthenticatedUser
 from backend.models.db_models import JournalEntry, MoodScore, AnalysisStatus, UserProfile
 from backend.models.schemas import (
     JournalEntryCreate,
@@ -24,6 +23,7 @@ from backend.models.schemas import (
 from backend.services.storage import r2_storage
 from backend.services.rate_limiter import check_rate_limit
 from backend.services.cache import cache_delete
+from backend.services.encryption import encrypt, decrypt
 from backend.tasks.analysis import analyze_entry
 
 _DAILY_ENTRY_LIMIT = 20  # max journal entries per user per calendar day
@@ -59,7 +59,7 @@ def _entry_to_response(entry: JournalEntry) -> JournalEntryResponse:
     return JournalEntryResponse(
         id=str(entry.id),
         user_id=str(entry.user_id),
-        text=entry.raw_text,
+        text=decrypt(entry.raw_text),
         audio_key=entry.audio_key,
         audio_url=audio_url,
         word_count=entry.word_count,
@@ -77,13 +77,13 @@ def _entry_to_response(entry: JournalEntry) -> JournalEntryResponse:
 )
 async def get_presigned_upload_url(
     body: PresignedUrlRequest,
-    current_user: str = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     # 5 presigned URLs per minute per user prevents bulk-upload abuse
-    check_rate_limit(f"rl:presigned:{current_user}", max_requests=5, window_seconds=60)
+    check_rate_limit(f"rl:presigned:{current_user.user_id}", max_requests=5, window_seconds=60)
 
     result = r2_storage.generate_upload_presigned_url(
-        user_id=current_user,
+        user_id=current_user.user_id,
         file_extension=body.file_extension,
     )
     return PresignedUrlResponse(**result)
@@ -97,17 +97,22 @@ async def get_presigned_upload_url(
 )
 async def create_journal_entry(
     body: JournalEntryCreate,
-    current_user: str = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # 10 submissions per minute per user (burst protection)
-    check_rate_limit(f"rl:journal_create:{current_user}", max_requests=10, window_seconds=60)
+    user_id = current_user.user_id
 
-    # Daily cap: max 20 entries per calendar day
-    today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
+    # 10 submissions per minute per user (burst protection)
+    check_rate_limit(f"rl:journal_create:{user_id}", max_requests=10, window_seconds=60)
+
+    # Daily cap: max 20 entries per UTC calendar day. (Per-user-timezone
+    # daily caps are a separate, larger task — see the production audit.
+    # This at least makes "the day" deterministic across servers.)
+    now_utc = datetime.now(timezone.utc)
+    today_start = datetime.combine(now_utc.date(), datetime.min.time()).replace(tzinfo=timezone.utc)
     count_today = await db.scalar(
         select(func.count()).select_from(JournalEntry).where(
-            JournalEntry.user_id == uuid.UUID(current_user),
+            JournalEntry.user_id == uuid.UUID(user_id),
             JournalEntry.created_at >= today_start,
         )
     )
@@ -118,24 +123,63 @@ async def create_journal_entry(
         )
 
     if body.audio_key:
-        if not r2_storage.object_exists(body.audio_key):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="audio_key references a file that does not exist in storage.",
-            )
-        if not body.audio_key.startswith(f"users/{current_user}/"):
+        # Path-prefix check first — short-circuits any cross-user reference
+        # before we incur a HEAD round-trip to R2.
+        if not body.audio_key.startswith(f"users/{user_id}/"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="audio_key does not belong to your account.",
             )
 
+        meta = r2_storage.get_object_metadata(body.audio_key)
+        if meta is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="audio_key references a file that does not exist in storage.",
+            )
 
-    stmt = insert(UserProfile).values(id=uuid.UUID(current_user)).on_conflict_do_nothing()
-    await db.execute(stmt)
-    await db.commit()
+        # Defense in depth: even though the presigned policy bounds these,
+        # re-verify after upload in case a URL was replayed or leaked.
+        content_type = (meta["content_type"] or "").lower()
+        if not content_type.startswith("audio/"):
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=f"audio_key must point to an audio/* object, got '{content_type}'.",
+            )
+        if meta["content_length"] > r2_storage.MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Audio file exceeds the maximum size.",
+            )
+
+    user_uuid = uuid.UUID(user_id)
+    profile = await db.get(UserProfile, user_uuid)
+    if profile is None:
+        # Profile doesn't exist yet — user hasn't granted consent through onboarding.
+        # Block submission until they do (GDPR Art. 9 — special-category data).
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Consent required. Please accept the data processing terms in your "
+                "account settings before submitting journal entries."
+            ),
+        )
+
+    if not profile.consent_given:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Consent required. Please accept the data processing terms in your "
+                "account settings before submitting journal entries."
+            ),
+        )
+
+    if current_user.email and profile.email != current_user.email:
+        profile.email = current_user.email
+
     entry = JournalEntry(
-        user_id=uuid.UUID(current_user),
-        raw_text=body.text,
+        user_id=user_uuid,
+        raw_text=encrypt(body.text),
         audio_key=body.audio_key,
         word_count=len(body.text.split()),
         mood_tags=body.mood_tags or [],
@@ -149,7 +193,7 @@ async def create_journal_entry(
     logger.info(f"Queued analysis task {task.id} for entry {entry.id}")
 
     # Bust insights cache so the next dashboard load reflects the new entry
-    cache_delete(f"insights:{current_user}")
+    cache_delete(f"insights:{user_id}")
 
     return JournalEntryCreatedResponse(
         entry_id=str(entry.id),
@@ -166,10 +210,10 @@ async def create_journal_entry(
 async def list_journal_entries(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=50),
-    current_user: str = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = uuid.UUID(current_user)
+    user_id = uuid.UUID(current_user.user_id)
     offset = (page - 1) * page_size
 
     count_result = await db.execute(
@@ -203,7 +247,7 @@ async def list_journal_entries(
 )
 async def get_journal_entry(
     entry_id: str,
-    current_user: str = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -216,7 +260,7 @@ async def get_journal_entry(
         .options(selectinload(JournalEntry.mood_scores))   # fixed: was mood_score
         .where(
             JournalEntry.id == entry_uuid,
-            JournalEntry.user_id == uuid.UUID(current_user),
+            JournalEntry.user_id == uuid.UUID(current_user.user_id),
         )
     )
     entry = result.scalar_one_or_none()
@@ -232,7 +276,7 @@ async def get_journal_entry(
 )
 async def get_analysis_status(
     entry_id: str,
-    current_user: str = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -243,7 +287,7 @@ async def get_analysis_status(
     result = await db.execute(
         select(JournalEntry.status).where(
             JournalEntry.id == entry_uuid,
-            JournalEntry.user_id == uuid.UUID(current_user),
+            JournalEntry.user_id == uuid.UUID(current_user.user_id),
         )
     )
     row = result.first()
@@ -259,7 +303,7 @@ async def get_analysis_status(
 )
 async def stream_analysis_status(
     entry_id: str,
-    current_user: str = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -270,12 +314,14 @@ async def stream_analysis_status(
     async def event_generator():
         _TERMINAL = {"completed", "COMPLETED", "failed", "FAILED"}
         _POLL_INTERVAL = 2.0  # check DB every 2 seconds server-side
+        _MAX_WAIT = 120.0     # give up after 2 minutes (handles stuck Celery workers)
+        elapsed = 0.0
 
-        while True:
+        while elapsed < _MAX_WAIT:
             result = await db.execute(
                 select(JournalEntry.status).where(
                     JournalEntry.id == entry_uuid,
-                    JournalEntry.user_id == uuid.UUID(current_user),
+                    JournalEntry.user_id == uuid.UUID(current_user.user_id),
                 )
             )
             row = result.first()
@@ -290,6 +336,10 @@ async def stream_analysis_status(
                 return
 
             await asyncio.sleep(_POLL_INTERVAL)
+            elapsed += _POLL_INTERVAL
+
+        # Celery worker likely died mid-task; tell the client to stop polling
+        yield f"event: error\ndata: timeout\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -308,7 +358,7 @@ async def stream_analysis_status(
 )
 async def delete_journal_entry(
     entry_id: str,
-    current_user: str = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -319,7 +369,7 @@ async def delete_journal_entry(
     result = await db.execute(
         select(JournalEntry).where(
             JournalEntry.id == entry_uuid,
-            JournalEntry.user_id == uuid.UUID(current_user),
+            JournalEntry.user_id == uuid.UUID(current_user.user_id),
         )
     )
     entry = result.scalar_one_or_none()
@@ -329,5 +379,7 @@ async def delete_journal_entry(
     if entry.audio_key:
         r2_storage.delete_object(entry.audio_key)
 
+    await db.execute(delete(MoodScore).where(MoodScore.entry_id == entry_uuid))
     await db.delete(entry)
     await db.commit()
+    cache_delete(f"insights:{current_user.user_id}")

@@ -13,7 +13,7 @@ export default function NudgesWidget() {
             try {
                 const data = await nudgesApi.list()
                 // Only keep the ones the user hasn't rated yet
-                const unrated = data.filter(n => n.rating === null)
+                const unrated = data.nudges.filter(n => n.rating === null)
                 setUnratedNudges(unrated)
             } catch (error) {
                 console.error("Failed to fetch nudges:", error)
@@ -27,7 +27,7 @@ export default function NudgesWidget() {
     const handleRate = async (nudgeId: string, rating: number) => {
         // Optimistically remove the rated nudge from the local queue
         setUnratedNudges(prev => prev.filter(n => n.id !== nudgeId))
-        
+
         try {
             await nudgesApi.rate(nudgeId, rating)
         } catch (error) {
@@ -81,7 +81,7 @@ export default function NudgesWidget() {
                             </span>
                         )}
                     </div>
-                    
+
                     <Link href="/nudges" className="text-[11px] text-[#6b6357] hover:text-[#c8a96e] transition-colors">
                         View all
                     </Link>
@@ -94,14 +94,14 @@ export default function NudgesWidget() {
                 <div className="mt-2 flex items-center justify-between border-t border-[#1a1815] pt-4">
                     <span className="text-[12px] text-[#6b6357]">Did this resonate with you?</span>
                     <div className="flex gap-2">
-                        <button 
+                        <button
                             onClick={() => handleRate(currentNudge.id, 1)}
                             className="flex h-8 w-8 items-center justify-center rounded-full border border-[#2a2720] text-[14px] transition-all hover:border-[#c8a96e] hover:bg-[#c8a96e]/10 active:scale-95"
                             title="This was helpful"
                         >
                             👍
                         </button>
-                        <button 
+                        <button
                             onClick={() => handleRate(currentNudge.id, -1)}
                             className="flex h-8 w-8 items-center justify-center rounded-full border border-[#2a2720] text-[14px] transition-all hover:border-[#8a2a2a] hover:bg-[#8a2a2a]/10 active:scale-95"
                             title="Not helpful"

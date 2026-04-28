@@ -99,6 +99,22 @@ class R2StorageService:
             return True
         except ClientError:
             return False
+
+    def get_object_metadata(self, object_key: str) -> Optional[dict]:
+        """Return {content_type, content_length} from R2's HEAD, or None if missing.
+
+        Used at journal-create time to verify the upload actually matches the
+        size + MIME policy enforced on the presigned URL — defense in depth
+        against leaked or replayed URLs.
+        """
+        try:
+            head = self.client.head_object(Bucket=self.bucket_name, Key=object_key)
+            return {
+                "content_type": head.get("ContentType", ""),
+                "content_length": int(head.get("ContentLength", 0)),
+            }
+        except ClientError:
+            return None
         
 
     def get_audio_stream(self, object_key: str):

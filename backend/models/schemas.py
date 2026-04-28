@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
-from enum import Enum
 
 from backend.models.db_models import AnalysisStatus
 
@@ -109,23 +108,3 @@ class JournalListResponse(BaseModel):
     has_more: bool
 
 
-class NudgeResponse(BaseModel):
-    id: str
-    user_id: str
-    nudge_type: str
-    content: str
-    rating: Optional[int] = None
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-    @classmethod
-    def from_db(cls, nudge) -> "NudgeResponse":
-        return cls(
-            id=str(nudge.id),
-            user_id=str(nudge.user_id),
-            nudge_type=nudge.nudge_type,
-            content=nudge.content,
-            rating=nudge.rating,
-            created_at=nudge.sent_at,
-        )

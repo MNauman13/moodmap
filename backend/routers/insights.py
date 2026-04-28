@@ -20,6 +20,12 @@ router = APIRouter(
 _INSIGHTS_TTL = 300  # 5 minutes
 
 
+def _as_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 # Pydantic Schemas for Swagger UI / Frontend Typing
 class TrendDataPoint(BaseModel):
     date: str
@@ -64,14 +70,14 @@ async def get_user_insights(
     if not all_scores:
         return InsightsResponse(trend_data=[], emotion_breakdown=[], calendar_data=[])
 
-    scores_30 = [s for s in all_scores if s.time >= thirty_days_ago]
+    scores_30 = [s for s in all_scores if _as_utc(s.time) >= thirty_days_ago]
 
     # ── Aggregate 30-day data ──────────────────────────────────────
     daily_30: dict = defaultdict(list)
     emotion_counts: dict = defaultdict(int)
 
     for score in scores_30:
-        day_str = score.time.strftime("%Y-%m-%d")
+        day_str = _as_utc(score.time).strftime("%Y-%m-%d")
         daily_30[day_str].append(score.fused_score)
         if score.dominant_emotion:
             emotion_counts[score.dominant_emotion] += 1
@@ -89,7 +95,7 @@ async def get_user_insights(
     # ── Aggregate 56-day data for heatmap ─────────────────────────
     daily_56: dict = defaultdict(list)
     for score in all_scores:
-        day_str = score.time.strftime("%Y-%m-%d")
+        day_str = _as_utc(score.time).strftime("%Y-%m-%d")
         daily_56[day_str].append(score.fused_score)
 
     calendar_data = sorted(

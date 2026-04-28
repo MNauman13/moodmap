@@ -72,7 +72,7 @@ export default function EmotionBreakdown({ data, loading }: Props) {
   return (
     <div className="bg-[#0c0b09] border border-[#1a1815] rounded-xl p-6">
       <p className="font-['Lora'] text-[15px] text-[#c8bfb0] mb-1">Emotion mix</p>
-      <p className="text-[12px] text-[#4a4438] font-light mb-5">
+      <p className="text-[12px] text-[#6b6357] font-light mb-5">
         Dominant feelings this month
       </p>
 
@@ -80,8 +80,8 @@ export default function EmotionBreakdown({ data, loading }: Props) {
         <div className={`${styles.shimmer} h-[160px] w-full rounded-lg`} />
       ) : data.length === 0 ? (
         <div className="h-[160px] flex flex-col items-center justify-center gap-2">
-          <div className="w-9 h-9 rounded-full border border-[#2a2720] flex items-center justify-center text-[#4a4438] text-sm">◌</div>
-          <p className="text-[13px] text-[#4a4438] font-light">No data yet</p>
+          <div className="w-9 h-9 rounded-full border border-[#2a2720] flex items-center justify-center text-[#6b6357] text-sm">◌</div>
+          <p className="text-[13px] text-[#6b6357] font-light">No data yet</p>
         </div>
       ) : (
         <>
@@ -134,7 +134,7 @@ export default function EmotionBreakdown({ data, loading }: Props) {
                     {entry.name}
                   </span>
                 </div>
-                <span className="text-[11px] text-[#4a4438] tabular-nums">{entry.value}×</span>
+                <span className="text-[11px] text-[#6b6357] tabular-nums">{entry.value}×</span>
               </li>
             ))}
           </ul>

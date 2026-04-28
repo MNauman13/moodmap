@@ -1,6 +1,15 @@
+import os
 import sys
 from os.path import abspath, dirname
-sys.path.insert(0, dirname(dirname(abspath(__file__))))
+from pathlib import Path
+
+# Allow imports from backend/ and load backend/.env before anything else
+_BACKEND_DIR = dirname(dirname(abspath(__file__)))
+sys.path.insert(0, _BACKEND_DIR)
+
+from dotenv import load_dotenv
+load_dotenv(Path(_BACKEND_DIR) / ".env")
+
 from models.db_models import Base
 
 from logging.config import fileConfig
@@ -56,12 +65,15 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
+    """Run migrations in 'online' mode."""
+    # Prefer DATABASE_URL from the environment (loaded from backend/.env above)
+    # over whatever is in alembic.ini, so we never accidentally migrate localhost.
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:
+        # asyncpg URLs must be rewritten to psycopg2 for the sync Alembic runner
+        db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+        config.set_main_option("sqlalchemy.url", db_url)
 
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

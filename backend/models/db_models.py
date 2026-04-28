@@ -22,10 +22,14 @@ class UserProfile(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=True)
     timezone = Column(String, default='UTC')
     notification_enabled = Column(Boolean, default=True)
     baseline_score = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)
+    # GDPR Art. 9 — mood data is special-category; explicit consent required
+    consent_given = Column(Boolean, nullable=False, default=False)
+    consent_given_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     entries = relationship("JournalEntry", back_populates="user", cascade="all, delete")
@@ -47,7 +51,12 @@ class JournalEntry(Base):
 
     # Relationships
     user = relationship("UserProfile", back_populates="entries")
-    mood_scores = relationship("MoodScore", back_populates="entry")
+    mood_scores = relationship(
+        "MoodScore",
+        back_populates="entry",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 class MoodScore(Base):
     __tablename__ = 'mood_scores'
@@ -55,7 +64,7 @@ class MoodScore(Base):
     # SQLAlchemy requires a primary key, so we use a composite key of time + user_id
     time = Column(DateTime(timezone=True), primary_key=True, default=utc_now)
     user_id = Column(UUID(as_uuid=True), ForeignKey('user_profiles.id', ondelete='CASCADE'), primary_key=True, index=True)
-    entry_id = Column(UUID(as_uuid=True), ForeignKey('journal_entries.id'))
+    entry_id = Column(UUID(as_uuid=True), ForeignKey('journal_entries.id', ondelete='CASCADE'))
     
     text_joy = Column(Float)
     text_sadness = Column(Float)
@@ -94,7 +103,7 @@ class Nudge(Base):
 class AgentState(Base):
     __tablename__ = 'agent_states'
     
-    user_id = Column(UUID(as_uuid=True), ForeignKey('user_profiles.id'), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('user_profiles.id', ondelete='CASCADE'), primary_key=True)
     last_checked_at = Column(DateTime(timezone=True))
     trajectory_slope = Column(Float)
     volatility = Column(Float)

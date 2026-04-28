@@ -47,11 +47,21 @@ def cache_delete(key: str) -> None:
 
 
 def cache_delete_pattern(pattern: str) -> None:
-    """Delete all keys matching a glob pattern (e.g. 'insights:*'). Use sparingly."""
+    """Delete all keys matching a glob pattern (e.g. 'insights:*').
+
+    Uses SCAN, not KEYS — KEYS is O(n) on the entire keyspace AND blocks
+    the Redis server until it completes, which on a busy production
+    instance can pause every other client (including Celery's broker).
+    SCAN is cursor-based and yields between iterations.
+    """
     try:
         r = _client()
-        keys = r.keys(pattern)
-        if keys:
-            r.delete(*keys)
+        cursor = 0
+        while True:
+            cursor, keys = r.scan(cursor, match=pattern, count=200)
+            if keys:
+                r.delete(*keys)
+            if cursor == 0:
+                break
     except Exception:
         pass

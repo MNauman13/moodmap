@@ -1,3 +1,4 @@
+import os
 import pytest
 import uuid
 from httpx import AsyncClient, ASGITransport
@@ -5,9 +6,17 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
+# Provide a stable Fernet key for the test suite so encrypt/decrypt calls in
+# the routers don't raise RuntimeError due to a missing env var.
+os.environ.setdefault(
+    "FIELD_ENCRYPTION_KEY",
+    # 32 zero bytes, URL-safe base64. Valid Fernet key; NOT for production use.
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+)
+
 from backend.main import app
 from backend.database import get_db, Base
-from backend.routers.user import get_current_user_id
+from backend.routers.user import get_current_user, get_current_user_id, AuthenticatedUser
 
 # --- SQLITE COMPILER OVERRIDES ---
 # Teach SQLite how to handle Postgres-specific data types during tests
@@ -67,17 +76,25 @@ def mock_user_id():
 def override_get_user(mock_user_id):
     """A helper to bypass Supabase JWT validation entirely."""
     def _get_current_user_override():
-        return mock_user_id
+        return AuthenticatedUser(user_id=mock_user_id, email="test@example.com")
     return _get_current_user_override
 
 @pytest.fixture
-async def client(override_get_db, override_get_user):
+def override_get_user_id(mock_user_id):
+    """String-form user id for routes that depend on get_current_user_id."""
+    def _get_current_user_id_override():
+        return mock_user_id
+    return _get_current_user_id_override
+
+@pytest.fixture
+async def client(override_get_db, override_get_user, override_get_user_id):
     """
     The ultimate TestClient.
     We intercept the app and inject our fake DB and fake User Auth.
     """
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_user_id] = override_get_user
+    app.dependency_overrides[get_current_user_id] = override_get_user_id
+    app.dependency_overrides[get_current_user] = override_get_user
     
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
