@@ -26,10 +26,15 @@ from backend.routers.user import get_current_user_id
 from backend.services.pdf_generator import generate_weekly_report
 from backend.services.encryption import decrypt
 
-# GenSim for theme extraction
-from gensim.parsing.preprocessing import STOPWORDS
-from gensim.utils import simple_preprocess
-from gensim import corpora, models
+# GenSim for theme extraction — optional (not installed in CI).
+# extract_themes() returns [] when unavailable; all callers already handle that.
+try:
+    from gensim.parsing.preprocessing import STOPWORDS
+    from gensim.utils import simple_preprocess
+    from gensim import corpora, models
+    _GENSIM_AVAILABLE = True
+except ImportError:
+    _GENSIM_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/reports", tags=["Reports"])
@@ -38,7 +43,7 @@ router = APIRouter(prefix="/api/v1/reports", tags=["Reports"])
 # ─── Theme extraction (LDA) ──────────────────────────────────────────────────
 def extract_themes(texts: list) -> list:
     """Top 3 themes via GenSim LDA, returned as 'Word, Word, Word' strings."""
-    if not texts:
+    if not texts or not _GENSIM_AVAILABLE:
         return []
 
     processed = [
