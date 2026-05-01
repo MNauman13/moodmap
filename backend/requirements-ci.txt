@@ -99,5 +99,4 @@ vine==5.1.0
 wcwidth==0.6.0
 wrapt==2.1.2
 python-json-logger==3.3.0
-prometheus-fastapi-instrumentator==7.1.0
 psutil==7.0.0
