@@ -1,19 +1,8 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Session } from '@supabase/supabase-js'
-
-// Routes safe for unauthenticated users. Anything else requires a session.
-const PUBLIC_ROUTES = ['/login', '/signup', '/']
-
-// Only allow same-origin paths from the ?next= param to prevent open-redirect.
-function safeRedirectTarget(raw: string | null): string {
-    if (!raw) return '/dashboard'
-    if (!raw.startsWith('/') || raw.startsWith('//')) return '/dashboard'
-    return raw
-}
 
 interface AuthContextType {
     session: Session | null
@@ -22,74 +11,37 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({ session: null, isLoading: true })
 
+/**
+ * Provides the Supabase session to the component tree.
+ *
+ * Routing is handled entirely by proxy.ts (server-side). This component
+ * does NOT redirect — doing so would race with the proxy and create redirect
+ * loops. Its only job is to keep `session` in sync and to flush any
+ * pending consent that was stored in localStorage during signup.
+ */
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<Session | null>(null)
     const [isLoading, setIsLoading] = useState(true)
-    const router = useRouter()
-    const pathname = usePathname()
-    const searchParams = useSearchParams()
 
     useEffect(() => {
-        let mounted = true
-
-        const handleRouting = (currentSession: Session | null, currentPath: string) => {
-            const isPublicRoute = PUBLIC_ROUTES.includes(currentPath)
-
-            if (!currentSession && !isPublicRoute) {
-                // Not logged in trying to access a private page — preserve where they wanted to go
-                const next = encodeURIComponent(currentPath)
-                router.replace(`/login?next=${next}`)
-            } else if (currentSession && isPublicRoute && currentPath !== '/') {
-                // Logged in on /login or /signup — bounce them onward
-                const target = safeRedirectTarget(searchParams.get('next'))
-                router.replace(target)
-            }
-        }
-
-        const applyPendingConsent = async (session: Session) => {
-            const pending = localStorage.getItem("moodmap_pending_consent")
-            if (pending !== "true") return
-            try {
-                await fetch("/api/v1/account/consent", {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${session.access_token}`,
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ consent_given: true }),
-                })
-                localStorage.removeItem("moodmap_pending_consent")
-            } catch {
-                // Non-fatal — user can re-enable consent in Account Settings
-            }
-        }
-
-        const initializeAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (mounted) {
-                setSession(session)
-                setIsLoading(false)
-                if (session) await applyPendingConsent(session)
-                handleRouting(session, pathname)
-            }
-        }
-
-        initializeAuth()
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (mounted) {
-                setSession(session)
-                if (session) await applyPendingConsent(session)
-                handleRouting(session, pathname)
-            }
+        // Seed state from the current cookie-backed session, then flush any
+        // pending consent recorded during signup (before email was confirmed).
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session)
+            setIsLoading(false)
+            if (session) applyPendingConsent(session)
         })
 
-        return () => {
-            mounted = false
-            subscription.unsubscribe()
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pathname])
+        // Keep state in sync across tab focus, token refreshes, sign-out, etc.
+        // Also flush pending consent on the SIGNED_IN event so new accounts
+        // get their consent recorded on the very first login.
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            setSession(session)
+            if (session && event === 'SIGNED_IN') applyPendingConsent(session)
+        })
+
+        return () => subscription.unsubscribe()
+    }, [])
 
     if (isLoading) {
         return (
@@ -112,3 +64,26 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 }
 
 export const useAuth = () => useContext(AuthContext)
+
+/**
+ * If the user granted consent during signup (before their email was
+ * confirmed and a session existed), we stored the intent in localStorage.
+ * This function picks that up and POSTs it to the backend on first login.
+ * Non-fatal: if it fails, the user can enable consent in Account Settings.
+ */
+async function applyPendingConsent(session: Session): Promise<void> {
+    if (localStorage.getItem('moodmap_pending_consent') !== 'true') return
+    try {
+        await fetch('/api/v1/account/consent', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ consent_given: true }),
+        })
+        localStorage.removeItem('moodmap_pending_consent')
+    } catch {
+        // Non-fatal — user can re-enable consent in Account Settings
+    }
+}

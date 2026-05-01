@@ -30,7 +30,7 @@ _CRISIS_KEYWORDS = {
     "life isn't worth", "no way out", "give up on life",
 }
 
-_IMMEDIATE_DISTRESS_THRESHOLD = -0.6  # trigger immediate agent below this score
+_IMMEDIATE_DISTRESS_THRESHOLD = -0.75  # trigger immediate agent below this score
 
 
 def _contains_crisis(text: str) -> bool:
@@ -128,6 +128,8 @@ def analyze_entry(self, entry_id: str):
                 
                 # Text Data
                 text_joy=text_scores.get("joy", 0),
+                text_love=text_scores.get("love", 0),
+                text_optimism=text_scores.get("optimism", 0),
                 text_sadness=text_scores.get("sadness", 0),
                 text_anger=text_scores.get("anger", 0),
                 text_fear=text_scores.get("fear", 0),

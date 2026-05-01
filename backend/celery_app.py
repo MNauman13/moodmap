@@ -26,7 +26,7 @@ celery_app = Celery(
     "moodmap",
     broker=broker_url,
     backend=result_backend,
-    include=["backend.tasks.analysis", "backend.tasks.scheduler"],
+    include=["backend.tasks.analysis", "backend.tasks.scheduler", "backend.tasks.report"],
 )
 
 # ── Beat schedule ───────────────────────────────────────────────
@@ -35,7 +35,12 @@ celery_app.conf.beat_schedule = {
         "task": "backend.tasks.scheduler.run_nightly_agent_check",
         "schedule": crontab(hour=20, minute=0),
         "options": {"queue": "low"},
-    }
+    },
+    "cleanup-tmp-files-hourly": {
+        "task": "backend.tasks.scheduler.cleanup_tmp_files",
+        "schedule": crontab(minute=0),          # top of every hour
+        "options": {"queue": "low"},
+    },
 }
 
 # ── Task routing — maps each task to its queue tier ────────────

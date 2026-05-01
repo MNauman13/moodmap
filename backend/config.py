@@ -28,6 +28,8 @@ _REQUIRED = [
     "ANTHROPIC_API_KEY",
     "RESEND_API_KEY",
     "FIELD_ENCRYPTION_KEY",
+    "RESEND_FROM_EMAIL",
+    "FRONTEND_URL",
 ]
 
 _OPTIONAL = {
@@ -66,6 +68,8 @@ R2_BUCKET_NAME: str = os.getenv("CLOUDFLARE_R2_BUCKET_NAME", "moodmap-audio")
 HF_TOKEN: str | None = os.getenv("HF_TOKEN")
 ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
 RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM_EMAIL: str = os.getenv("RESEND_FROM_EMAIL", "")
+FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 CORS_ORIGINS: list[str] = [
     o.strip()

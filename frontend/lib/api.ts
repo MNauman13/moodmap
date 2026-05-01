@@ -19,6 +19,8 @@ export type AnalysisStatus =
 
 export interface MoodScores {
   text_joy: number | null;
+  text_love: number | null;
+  text_optimism: number | null;
   text_sadness: number | null;
   text_anger: number | null;
   text_fear: number | null;

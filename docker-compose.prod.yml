@@ -18,6 +18,11 @@ x-backend-defaults: &backend-defaults
   restart: unless-stopped
   env_file:
     - ./backend/.env
+  # Override the localhost Redis URLs from .env with the authenticated
+  # Docker-internal Redis service address (hostname = "redis").
+  environment:
+    CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+    CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis:6379/0"
   depends_on:
     redis:
       condition: service_healthy

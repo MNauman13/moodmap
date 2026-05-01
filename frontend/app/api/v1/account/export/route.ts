@@ -22,10 +22,26 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ detail: "Service unavailable" }, { status: 503 });
   }
 
-  const data = await backendRes.json();
+  // Read body as text first — the backend may return plain-text errors (e.g. 500)
+  // rather than JSON when an unhandled exception escapes its middleware stack.
+  const text = await backendRes.text();
 
-  return new NextResponse(JSON.stringify(data, null, 2), {
-    status: backendRes.status,
+  if (!backendRes.ok) {
+    // Attempt to surface a useful error detail; fall back to the raw text.
+    let detail = text.trim();
+    try {
+      const parsed = JSON.parse(text);
+      detail = parsed?.detail ?? detail;
+    } catch { /* keep raw text */ }
+    return NextResponse.json(
+      { detail: detail || `Export failed (${backendRes.status})` },
+      { status: backendRes.status },
+    );
+  }
+
+  // Success — pipe the JSON through as a downloadable file.
+  return new NextResponse(text, {
+    status: 200,
     headers: {
       "Content-Type": "application/json",
       "Content-Disposition": `attachment; filename="moodmap_export.json"`,

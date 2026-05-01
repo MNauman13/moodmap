@@ -8,6 +8,8 @@ import styles from "../dashboard.module.css";
 // ── Colour map ─────────────────────────────────────────────────
 const EMOTION_COLORS: Record<string, string> = {
   Joy:      "#c8a96e",
+  Love:     "#c27a8e",
+  Optimism: "#d4a853",
   Sadness:  "#5c7a9e",
   Anger:    "#b85c4a",
   Fear:     "#7a6e9e",
@@ -15,7 +17,7 @@ const EMOTION_COLORS: Record<string, string> = {
   Surprise: "#9e8a5c",
   Neutral:  "#5a5550",
 };
-const FALLBACK = ["#c8a96e","#5c7a9e","#b85c4a","#7a6e9e","#5c7a5c","#9e8a5c","#5a5550"];
+const FALLBACK = ["#c8a96e","#c27a8e","#d4a853","#5c7a9e","#b85c4a","#7a6e9e","#5c7a5c","#9e8a5c","#5a5550"];
 
 function getColor(name: string, index: number): string {
   return EMOTION_COLORS[name] ?? FALLBACK[index % FALLBACK.length];

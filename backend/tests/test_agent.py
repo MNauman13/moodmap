@@ -41,7 +41,7 @@ def test_generate_nudge(mock_anthropic_class, mock_db):
     mock_session.query().filter().first.return_value = None # Simulate a user with no custom weights yet
     
     state = {
-        "user_id": "fake-user-uuid",
+        "user_id": "12345678-1234-5678-1234-567812345678",  # must be a valid UUID
         "mood_history": [-0.5, -0.6, -0.8],
         "trajectory": {"slope": -0.2, "volatility": 0.1, "z_score": -1.5}
     }

@@ -56,6 +56,8 @@ class PresignedUrlRequest(BaseModel):
 
 class MoodScores(BaseModel):
     text_joy: Optional[float] = None
+    text_love: Optional[float] = None
+    text_optimism: Optional[float] = None
     text_sadness: Optional[float] = None
     text_anger: Optional[float] = None
     text_fear: Optional[float] = None

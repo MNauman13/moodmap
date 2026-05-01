@@ -56,8 +56,8 @@ class TextEmotionAnalyzer:
             # Apply sigmoid because we used multi-label classification during training
             scores = torch.sigmoid(outputs.logits).squeeze().cpu().numpy()
 
-            # Map the 7 scores to their exact emotion labels
-            emotions = ["joy", "sadness", "anger", "fear", "disgust", "surprise", "neutral"]
+            # Map the 9 scores to their exact emotion labels (must match training order)
+            emotions = ["joy", "love", "optimism", "sadness", "anger", "fear", "disgust", "surprise", "neutral"]
             results = {emotions[i]: float(scores[i]) for i in range(len(emotions))}
 
             # Find the highest scoring emotion

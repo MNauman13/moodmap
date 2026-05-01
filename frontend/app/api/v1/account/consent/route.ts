@@ -6,6 +6,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8000";
 
+/** Parse JSON safely; returns null when the body is not valid JSON (e.g. plain-text 500). */
+async function tryJson(res: Response): Promise<unknown> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { detail: text.trim() || `Backend error ${res.status}` };
+  }
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (!authHeader) {
@@ -22,7 +32,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ detail: "Service unavailable" }, { status: 503 });
   }
 
-  const data = await backendRes.json();
+  const data = await tryJson(backendRes);
   return NextResponse.json(data, { status: backendRes.status });
 }
 
@@ -53,6 +63,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ detail: "Service unavailable" }, { status: 503 });
   }
 
-  const data = await backendRes.json();
+  const data = await tryJson(backendRes);
   return NextResponse.json(data, { status: backendRes.status });
 }

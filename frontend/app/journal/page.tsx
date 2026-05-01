@@ -201,8 +201,6 @@ export default function JournalPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap');
 
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
           background: #0e0d0b;
           color: #e8e4dc;

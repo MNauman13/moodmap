@@ -67,6 +67,8 @@ class MoodScore(Base):
     entry_id = Column(UUID(as_uuid=True), ForeignKey('journal_entries.id', ondelete='CASCADE'))
     
     text_joy = Column(Float)
+    text_love = Column(Float)
+    text_optimism = Column(Float)
     text_sadness = Column(Float)
     text_anger = Column(Float)
     text_fear = Column(Float)

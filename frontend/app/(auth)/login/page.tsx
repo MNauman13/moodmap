@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
-export default function Login() {
+export default function LoginPage() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [isLoading, setIsLoading] = useState(false)
@@ -17,10 +17,7 @@ export default function Login() {
         setError(null)
         setIsLoading(true)
 
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password
-        })
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
 
         setIsLoading(false)
 
@@ -35,7 +32,7 @@ export default function Login() {
     return (
         <div className="flex min-h-screen items-center justify-center bg-[#0e0d0b] px-4 font-sans">
             <div className="w-full max-w-md rounded-2xl border border-[#1a1815] bg-[#0c0b09] p-8 shadow-2xl">
-                
+
                 <div className="mb-8 text-center">
                     <h2 className="font-['Lora'] text-3xl text-[#c8bfb0] mb-2">
                         Welcome Back
@@ -53,7 +50,7 @@ export default function Login() {
 
                 <form onSubmit={handleLogin} className="space-y-4">
                     <div>
-                        <input 
+                        <input
                             type="email"
                             placeholder="Email address"
                             value={email}

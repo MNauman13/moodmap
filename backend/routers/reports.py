@@ -9,22 +9,32 @@ reflection prompts.
 """
 
 import os
-import uuid
 import logging
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends
-from fastapi.responses import FileResponse
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+import boto3
+from botocore.config import Config
+from celery.result import AsyncResult
+from fastapi import APIRouter, Depends, HTTPException
 
-from backend.database import get_db
 from backend.models.db_models import JournalEntry, MoodScore
 from backend.routers.user import get_current_user_id
-from backend.services.pdf_generator import generate_weekly_report
 from backend.services.encryption import decrypt
+from backend.celery_app import celery_app
+
+# ── R2 client (presigned URL generation only) ─────────────────────────────────
+_s3 = boto3.client(
+    "s3",
+    endpoint_url=os.getenv("CLOUDFLARE_R2_ENDPOINT", "").rstrip("/"),
+    aws_access_key_id=os.getenv("CLOUDFLARE_R2_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("CLOUDFLARE_R2_SECRET_ACCESS_KEY"),
+    region_name="us-east-1",
+    config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+)
+_BUCKET = os.getenv("CLOUDFLARE_R2_BUCKET_NAME", "moodmap-audio")
+_PRESIGNED_EXPIRY = 300  # 5 minutes
 
 # GenSim for theme extraction — optional (not installed in CI).
 # extract_themes() returns [] when unavailable; all callers already handle that.
@@ -138,6 +148,8 @@ def _build_summary(
 # strings like "joy", "neutral" — surface them as something a person would say.
 _EMOTION_DISPLAY = {
     "joy": "Joy",
+    "love": "Love",
+    "optimism": "Optimism",
     "sadness": "Sadness",
     "anger": "Frustration",   # softer than "Anger" for a wellness report
     "fear": "Anxiety",        # most users read fear as anxiety in this context
@@ -267,86 +279,64 @@ def _generate_reflection_prompts(
     return fallback
 
 
-# ─── Background cleanup ──────────────────────────────────────────────────────
-def delete_temp_file(path: str) -> None:
-    try:
-        if os.path.exists(path):
-            os.remove(path)
-    except Exception as e:
-        logger.warning("Failed to delete temp file %s: %s", path, e)
+# ─── API endpoints ───────────────────────────────────────────────────────────
 
-
-# ─── API endpoint ────────────────────────────────────────────────────────────
-@router.get("/weekly", summary="Generate and download a weekly PDF report")
-async def get_weekly_report(
-    background_tasks: BackgroundTasks,
+@router.post("/weekly", summary="Queue a weekly PDF report for generation", status_code=202)
+async def request_weekly_report(
     current_user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
 ):
-    user_uuid = uuid.UUID(current_user_id)
+    """
+    Dispatches PDF generation to a Celery worker and returns a task_id immediately.
+    Poll GET /weekly/status/{task_id} for progress.
+    """
+    from backend.tasks.report import generate_report_task
+
     end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=7)
 
-    # Pull entries (full rows — we want raw_text for the quote)
-    entries_result = await db.execute(
-        select(JournalEntry)
-        .where(
-            JournalEntry.user_id == user_uuid,
-            JournalEntry.created_at >= start_date,
-        )
-        .order_by(JournalEntry.created_at.asc())
+    task = generate_report_task.delay(
+        user_id=current_user_id,
+        start_date_iso=start_date.isoformat(),
+        end_date_iso=end_date.isoformat(),
     )
-    entries: list[JournalEntry] = list(entries_result.scalars().all())
+    logger.info("Report task %s queued for user %s", task.id, current_user_id)
+    return {"task_id": task.id, "status": "queued"}
 
-    # Pull mood scores (full rows — we need time, dominant_emotion, fused_score, entry_id)
-    scores_result = await db.execute(
-        select(MoodScore).where(
-            MoodScore.user_id == user_uuid,
-            MoodScore.time >= start_date,
-            MoodScore.fused_score.is_not(None),
-        )
-    )
-    scores: list[MoodScore] = list(scores_result.scalars().all())
 
-    # ─── Compose user-facing inputs ──────────────────────────────────────────
-    avg = (
-        sum(s.fused_score for s in scores) / len(scores)
-        if scores else None
-    )
-    headline = _headline_from_avg(avg)
-    summary = _build_summary(scores, entries)
-    top_emotions = _top_emotions(scores, limit=4)
-    themes = extract_themes([decrypt(e.raw_text) for e in entries if e.raw_text])
-    quote = _select_quote(entries, scores)
-    reflection_prompts = _generate_reflection_prompts(themes, top_emotions)
-    days_logged = len({e.created_at.date() for e in entries})
+@router.get("/weekly/status/{task_id}", summary="Poll the status of a queued report task")
+async def get_report_status(
+    task_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    """
+    Returns one of:
+      {"status": "pending"}
+      {"status": "processing"}
+      {"status": "ready", "download_url": "<5-min presigned URL>", "expires_in_seconds": 300}
+      {"status": "failed", "detail": "<reason>"}
+    """
+    result = AsyncResult(task_id, app=celery_app)
+    state = result.state
 
-    # ─── Render & deliver ────────────────────────────────────────────────────
-    # Use a temp dir + unique name so concurrent requests from the same user
-    # never clobber each other's file.
-    import tempfile as _tempfile
-    tmp = _tempfile.NamedTemporaryFile(
-        delete=False, suffix=".pdf", prefix=f"moodmap_{user_uuid.hex}_"
-    )
-    file_path = tmp.name
-    tmp.close()  # close so generate_weekly_report can write to it on Windows
-
-    generate_weekly_report(
-        file_path=file_path,
-        start_date=start_date.strftime("%B %d, %Y"),
-        end_date=end_date.strftime("%B %d, %Y"),
-        headline=headline,
-        summary=summary,
-        top_emotions=top_emotions,
-        themes=themes,
-        quote=quote,
-        reflection_prompts=reflection_prompts,
-        days_logged=days_logged,
-    )
-    background_tasks.add_task(delete_temp_file, file_path)
-
-    return FileResponse(
-        path=file_path,
-        media_type="application/pdf",
-        filename="MoodMap_Weekly_Report.pdf",
-    )
+    if state in ("PENDING", "RECEIVED"):
+        return {"status": "pending"}
+    if state == "STARTED":
+        return {"status": "processing"}
+    if state == "SUCCESS":
+        r2_key = result.result.get("r2_key") if isinstance(result.result, dict) else None
+        if not r2_key:
+            raise HTTPException(status_code=500, detail="Report task succeeded but returned no file key.")
+        try:
+            download_url = _s3.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": _BUCKET, "Key": r2_key},
+                ExpiresIn=_PRESIGNED_EXPIRY,
+            )
+        except Exception as e:
+            logger.error("Failed to generate presigned URL for %s: %s", r2_key, e)
+            raise HTTPException(status_code=500, detail="Could not generate download link.")
+        return {"status": "ready", "download_url": download_url, "expires_in_seconds": _PRESIGNED_EXPIRY}
+    if state == "FAILURE":
+        return {"status": "failed", "detail": str(result.result)}
+    # RETRY / REVOKED / unknown
+    return {"status": "pending"}

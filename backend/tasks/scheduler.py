@@ -1,4 +1,7 @@
+import glob
 import logging
+import os
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -103,3 +106,28 @@ def run_nightly_agent_check():
 
     logger.info("Nightly agent check complete!")
     return f"Processed {len(user_ids)} users"
+
+
+@shared_task
+def cleanup_tmp_files():
+    """
+    Runs hourly via Celery Beat.
+    Deletes any moodmap_* temp files (audio and PDF) in /tmp that are older
+    than 1 hour — guards against orphaned files left by crashed workers.
+    """
+    cutoff = time.time() - 3600  # 1 hour ago
+    patterns = ["/tmp/moodmap_*"]
+    removed = 0
+    errors = 0
+    for pattern in patterns:
+        for path in glob.glob(pattern):
+            try:
+                if os.path.isfile(path) and os.path.getmtime(path) < cutoff:
+                    os.remove(path)
+                    removed += 1
+                    logger.debug("Cleaned up stale temp file: %s", path)
+            except Exception as e:
+                errors += 1
+                logger.warning("Failed to remove temp file %s: %s", path, e)
+    logger.info("Temp file cleanup: removed=%d errors=%d", removed, errors)
+    return {"removed": removed, "errors": errors}

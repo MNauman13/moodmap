@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 import { dashboardApi } from "@/lib/api";
 import type { InsightsResponse, JournalEntryResponse, TrendDataPoint } from "@/lib/api";
 import MoodTrendChart, { scoreToMeta } from "./components/MoodTrendChart";
@@ -111,6 +112,8 @@ export default function DashboardPage() {
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState<string | null>(null);
   const [justFinished, setJustFinished] = useState(false);
+  // null = still loading, true/false = fetched
+  const [consentGiven, setConsentGiven] = useState<boolean | null>(null);
 
   // Single backend round-trip: insights + recent entries via /dashboard/summary.
   async function loadData() {
@@ -120,6 +123,7 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
+    // Load dashboard data and consent status in parallel.
     dashboardApi.summary()
       .then((summary) => {
         setInsights(summary.insights);
@@ -127,6 +131,22 @@ export default function DashboardPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load dashboard"))
       .finally(() => setLoading(false));
+
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const res = await fetch('/api/v1/account/consent', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setConsentGiven(data.consent_given ?? false);
+        }
+      } catch {
+        // Non-fatal — banner simply won't show if fetch fails
+      }
+    })();
   }, []);
 
   // ── SSE stream while the latest entry is still being analysed ───
@@ -244,6 +264,36 @@ export default function DashboardPage() {
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               >
                 {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── Consent banner ── */}
+          <AnimatePresence>
+            {consentGiven === false && (
+              <motion.div
+                className="flex items-start justify-between gap-4 rounded-xl border border-[#c8a96e]/25 bg-[#0c0b09] px-5 py-4 mb-8"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 shrink-0 text-[#c8a96e] text-[15px]">⚠</span>
+                  <div>
+                    <p className="text-[13px] text-[#c8bfb0] font-light leading-relaxed">
+                      <span className="font-normal">Data processing consent not given.</span>{" "}
+                      MoodMap needs your consent to analyse journal entries and generate mood insights.
+                      Without it, new entries cannot be processed.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/account"
+                  className="shrink-0 self-center rounded-lg border border-[#c8a96e]/40 px-3.5 py-1.5 text-[12px] text-[#c8a96e] no-underline transition-all hover:border-[#c8a96e] hover:bg-[#c8a96e]/10 whitespace-nowrap"
+                >
+                  Give consent →
+                </Link>
               </motion.div>
             )}
           </AnimatePresence>

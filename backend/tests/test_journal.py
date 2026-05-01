@@ -1,7 +1,7 @@
 import pytest
 import uuid
 from unittest.mock import patch
-from backend.models.db_models import JournalEntry
+from backend.models.db_models import JournalEntry, UserProfile
 from backend.services.encryption import decrypt
 from sqlalchemy import select
 
@@ -12,6 +12,18 @@ async def test_create_journal_entry_success(client, db_session, mock_user_id):
     Tests that a user can submit a journal entry, it saves to the DB,
     and it successfully triggers the Celery worker (without actually running it)
     """
+
+    # Seed a UserProfile with consent_given=True.
+    # create_journal_entry now enforces GDPR consent before accepting entries,
+    # so the mock user must have a valid profile in the test DB.
+    user_uuid = uuid.UUID(mock_user_id)
+    profile = UserProfile(
+        id=user_uuid,
+        email="test@example.com",
+        consent_given=True,
+    )
+    db_session.add(profile)
+    await db_session.commit()
 
     payload = {
         "text": "today was a remarkably good day. I felt very productive.",

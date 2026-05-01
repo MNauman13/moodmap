@@ -7,13 +7,24 @@ class FusionModel:
     def calculate_text_valence(text_scores: dict) -> float:
         """
         Converts the 7 distinct text emotions into a single Valence score (-1.0 to 1.0).
-        Positive emotions push the score up; negative emotions pull it down.
+        Uses averaged negative scores to prevent 4 negative categories from dominating,
+        and dampens the result when neutral is the dominant signal.
         """
-        positive_weight = text_scores.get("joy", 0.0) + text_scores.get("surprise", 0.0)
-        negative_weight = text_scores.get("sadness", 0.0) + text_scores.get("anger", 0.0) + text_scores.get("fear", 0.0) + text_scores.get("disgust", 0.0)
-        
-        # Calculate net valence and clamp it between -1.0 and +1.0
-        valence = positive_weight - negative_weight
+        positive_avg = (
+            text_scores.get("joy", 0.0)
+            + text_scores.get("love", 0.0)
+            + text_scores.get("optimism", 0.0)
+        ) / 3.0
+        negative_avg = (
+            text_scores.get("sadness", 0.0)
+            + text_scores.get("anger", 0.0)
+            + text_scores.get("fear", 0.0)
+            + text_scores.get("disgust", 0.0)
+        ) / 4.0
+        neutral = text_scores.get("neutral", 0.0)
+
+        raw_valence = positive_avg - negative_avg
+        valence = raw_valence * (1.0 - 0.6 * neutral)
         return max(-1.0, min(1.0, valence))
 
     @staticmethod

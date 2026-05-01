@@ -42,6 +42,8 @@ def _entry_to_response(entry: JournalEntry) -> JournalEntryResponse:
         ms = entry.mood_scores[-1]                 # most recent score
         mood_scores = MoodScores(
             text_joy=ms.text_joy,
+            text_love=ms.text_love,
+            text_optimism=ms.text_optimism,
             text_sadness=ms.text_sadness,
             text_anger=ms.text_anger,
             text_fear=ms.text_fear,
