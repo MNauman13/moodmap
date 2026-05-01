@@ -260,6 +260,27 @@ def send_crisis_email(to_email: str, username: str) -> bool:
         logger.warning("RESEND_API_KEY is missing. Crisis email skipped.")
         return False
 
+    # Build the helpline rows outside the outer f-string.
+    # Python 3.11 (PEP 701 not yet available) rejects a triple-quoted f-string
+    # nested inside another f-string expression — compute it up-front instead.
+    _helpline_rows_html = "".join(
+        f'<table width="100%" cellpadding="0" cellspacing="0" border="0"'
+        f' style="margin-bottom:14px;"><tr>'
+        f'<td style="font-family:{_FONT_SANS};font-size:14px;font-weight:400;'
+        f'color:{_TEXT_BODY};line-height:1.5;">'
+        f'<strong style="color:{_TEXT_HI};font-weight:500;">{name}</strong>'
+        f" &mdash; {detail}"
+        f"</td></tr></table>"
+        for name, detail in [
+            ("Samaritans", "call or text <strong style='color:#e8e4dc;'>116 123</strong> &mdash; free, 24/7, confidential"),
+            ("Shout", "text <strong style='color:#e8e4dc;'>SHOUT to 85258</strong> &mdash; free crisis text line, 24/7"),
+            ("NHS urgent mental health", "call <strong style='color:#e8e4dc;'>111</strong> and select option 2"),
+            ("CALM", "call <strong style='color:#e8e4dc;'>0800 58 58 58</strong> &mdash; men's mental health"),
+            ("Papyrus", "call <strong style='color:#e8e4dc;'>0800 068 4141</strong> &mdash; under 35"),
+            ("Emergency", "call <strong style='color:#e8e4dc;'>999</strong> if you are in immediate danger"),
+        ]
+    )
+
     body = f"""
           <!-- Warm red accent rule -->
           <tr>
@@ -322,24 +343,7 @@ def send_crisis_email(to_email: str, username: str) -> bool:
                     </p>
 
                     <!-- Helpline rows -->
-                    {''.join(f"""
-                    <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                           style="margin-bottom:14px;">
-                      <tr>
-                        <td style="font-family:{_FONT_SANS};font-size:14px;font-weight:400;
-                                   color:{_TEXT_BODY};line-height:1.5;">
-                          <strong style="color:{_TEXT_HI};font-weight:500;">{name}</strong>
-                          &mdash; {detail}
-                        </td>
-                      </tr>
-                    </table>""" for name, detail in [
-                        ("Samaritans", "call or text <strong style='color:#e8e4dc;'>116 123</strong> &mdash; free, 24/7, confidential"),
-                        ("Shout", "text <strong style='color:#e8e4dc;'>SHOUT to 85258</strong> &mdash; free crisis text line, 24/7"),
-                        ("NHS urgent mental health", "call <strong style='color:#e8e4dc;'>111</strong> and select option 2"),
-                        ("CALM", "call <strong style='color:#e8e4dc;'>0800 58 58 58</strong> &mdash; men's mental health"),
-                        ("Papyrus", "call <strong style='color:#e8e4dc;'>0800 068 4141</strong> &mdash; under 35"),
-                        ("Emergency", "call <strong style='color:#e8e4dc;'>999</strong> if you are in immediate danger"),
-                    ])}
+                    {_helpline_rows_html}
 
                     <table width="100%" cellpadding="0" cellspacing="0" border="0"
                            style="border-top:1px solid {_RED_BORDER};margin-top:8px;padding-top:16px;">
