@@ -61,9 +61,9 @@ s3_client = boto3.client(
         s3={'addressing_style': 'path'}  # <--- THIS IS THE MAGIC BULLET FOR CLOUDFLARE
     )
 )
-BUCKET_NAME = "moodmap-audio"
+BUCKET_NAME = os.getenv("CLOUDFLARE_R2_BUCKET_NAME", "moodmap-audio")
 
-@shared_task(bind=True)
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def analyze_entry(self, entry_id: str):
     if not _ML_AVAILABLE:
         logger.warning("[analyze_entry] ML packages not installed — skipping analysis for entry %s", entry_id)
@@ -173,4 +173,6 @@ def analyze_entry(self, entry_id: str):
             logger.error(f"Pipeline crashed: {str(e)}")
             entry.status = AnalysisStatus.FAILED
             db.commit()
-            return {"status": "error", "detail": str(e)}
+            # Retry transient errors (network, R2 download, model load) up to max_retries.
+            # Permanent failures (entry not found, decrypt error) fall through to FAILED.
+            raise self.retry(exc=e, countdown=30 * (2 ** self.request.retries))

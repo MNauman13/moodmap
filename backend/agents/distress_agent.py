@@ -262,8 +262,11 @@ def send_nudge(state: AgentState) -> dict:
             else user.username if user
             else None
         )
-        # Allow test overrides so Resend free-tier sends reach your own inbox
-        recipient_email = os.getenv("NUDGE_EMAIL_OVERRIDE") or recipient_email
+        # Allow test/staging overrides so Resend free-tier sends reach your own inbox.
+        # Deliberately disabled in production to prevent routing real users' crisis
+        # emails to a developer address (privacy + safety risk).
+        if os.getenv("ENVIRONMENT", "production").lower() != "production":
+            recipient_email = os.getenv("NUDGE_EMAIL_OVERRIDE") or recipient_email
 
         if recipient_email:
             name = recipient_email.split("@")[0].capitalize()

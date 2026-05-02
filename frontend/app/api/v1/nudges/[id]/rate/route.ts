@@ -14,14 +14,20 @@ export async function POST(
   const { id } = await params;
   const body = await req.json();
 
-  const backendRes = await fetch(`${BACKEND_URL}/api/v1/nudges/${id}/rate`, {
-    method: "POST",
-    headers: {
-      "Authorization": authHeader,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  let backendRes: Response;
+  try {
+    backendRes = await fetch(`${BACKEND_URL}/api/v1/nudges/${id}/rate`, {
+      method: "POST",
+      headers: {
+        "Authorization": authHeader,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(25_000),
+    });
+  } catch {
+    return NextResponse.json({ detail: "Service unavailable" }, { status: 503 });
+  }
 
   const data = await backendRes.json();
   return NextResponse.json(data, { status: backendRes.status });

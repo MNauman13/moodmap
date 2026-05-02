@@ -19,14 +19,20 @@ async function proxyToBackend(
         return NextResponse.json({ detail: "Unauthorized" }, { status: 401 })
     }
 
-    const backendRes = await fetch(`${BACKEND_URL}${path}`, {
-        method,
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": authHeader
-        },
-        body: body ? JSON.stringify(body) : undefined
-    })
+    let backendRes: Response
+    try {
+        backendRes = await fetch(`${BACKEND_URL}${path}`, {
+            method,
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": authHeader
+            },
+            body: body ? JSON.stringify(body) : undefined,
+            signal: AbortSignal.timeout(25_000),
+        })
+    } catch {
+        return NextResponse.json({ detail: "Service unavailable" }, { status: 503 })
+    }
 
     const data = await backendRes.json()
     return NextResponse.json(data, { status: backendRes.status })

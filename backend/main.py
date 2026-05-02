@@ -75,10 +75,28 @@ app.add_middleware(
 )
 
 # ── Prometheus metrics (/metrics) ─────────────────────────────────────────────
+# Protected by a static bearer token (METRICS_TOKEN env var).
+# If METRICS_TOKEN is unset the endpoint is disabled entirely in production.
+_metrics_token = os.getenv("METRICS_TOKEN", "")
+
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
-    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
-    logger.info("Prometheus metrics available at /metrics")
+    from fastapi import Header, HTTPException as _HTTPException
+
+    instrumentator = Instrumentator()
+    instrumentator.instrument(app)
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics_endpoint(authorization: str = Header(default="")):
+        if not _metrics_token:
+            raise _HTTPException(status_code=404, detail="Not found")
+        expected = f"Bearer {_metrics_token}"
+        if authorization != expected:
+            raise _HTTPException(status_code=403, detail="Forbidden")
+        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+    logger.info("Prometheus metrics available at /metrics (token-protected)")
 except ImportError:
     logger.warning("prometheus-fastapi-instrumentator not installed — /metrics disabled")
 

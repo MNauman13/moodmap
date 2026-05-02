@@ -1,3 +1,4 @@
+import html
 import os
 import resend
 import logging
@@ -131,6 +132,10 @@ def send_nudge_email(to_email: str, username: str, nudge_content: str) -> bool:
     Sends a Claude-generated wellness nudge wrapped in the MoodMap design language.
     nudge_content is already plaintext (caller decrypts before passing here).
     """
+    # Escape before embedding in HTML to prevent XSS if nudge_content ever
+    # contains angle brackets or ampersands (e.g. from an LLM producing HTML).
+    nudge_content = html.escape(nudge_content)
+
     if not resend.api_key:
         logger.warning("RESEND_API_KEY is missing. Nudge email skipped.")
         return False

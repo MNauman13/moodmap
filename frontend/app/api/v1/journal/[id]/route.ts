@@ -12,13 +12,19 @@ export async function GET(req: NextRequest, { params }: Params) {
 
   const { id } = await params;
 
-  const backendRes = await fetch(`${BACKEND_URL}/api/v1/journal/${id}`, {
-    method: "GET",
-    headers: {
-      "Authorization": authHeader,
-      "Content-Type": "application/json",
-    },
-  });
+  let backendRes: Response;
+  try {
+    backendRes = await fetch(`${BACKEND_URL}/api/v1/journal/${id}`, {
+      method: "GET",
+      headers: {
+        "Authorization": authHeader,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(25_000),
+    });
+  } catch {
+    return NextResponse.json({ detail: "Service unavailable" }, { status: 503 });
+  }
 
   const data = await backendRes.json();
   return NextResponse.json(data, { status: backendRes.status });
@@ -32,10 +38,16 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
   const { id } = await params;
 
-  const backendRes = await fetch(`${BACKEND_URL}/api/v1/journal/${id}`, {
-    method: "DELETE",
-    headers: { "Authorization": authHeader },
-  });
+  let backendRes: Response;
+  try {
+    backendRes = await fetch(`${BACKEND_URL}/api/v1/journal/${id}`, {
+      method: "DELETE",
+      headers: { "Authorization": authHeader },
+      signal: AbortSignal.timeout(25_000),
+    });
+  } catch {
+    return NextResponse.json({ detail: "Service unavailable" }, { status: 503 });
+  }
 
   if (backendRes.status === 204) {
     return new NextResponse(null, { status: 204 });

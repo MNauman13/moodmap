@@ -337,6 +337,9 @@ async def get_report_status(
             raise HTTPException(status_code=500, detail="Could not generate download link.")
         return {"status": "ready", "download_url": download_url, "expires_in_seconds": _PRESIGNED_EXPIRY}
     if state == "FAILURE":
-        return {"status": "failed", "detail": str(result.result)}
+        # Never surface raw Celery exception text to the client — it may contain
+        # internal paths, DB credentials, or user data from stack frames.
+        logger.error("Report task %s failed: %s", task_id, result.result)
+        return {"status": "failed", "detail": "Report generation failed. Please try again."}
     # RETRY / REVOKED / unknown
     return {"status": "pending"}

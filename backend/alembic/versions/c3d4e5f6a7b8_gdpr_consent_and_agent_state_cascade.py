@@ -37,15 +37,16 @@ def upgrade() -> None:
     )
 
     # 2. GDPR consent fields on user_profiles.
-    #    consent_given defaults to False — existing rows are treated as
-    #    non-consenting until they explicitly grant consent via the account page.
-    op.add_column(
-        "user_profiles",
-        sa.Column("consent_given", sa.Boolean(), nullable=False, server_default="false"),
+    #    Use raw DDL with IF NOT EXISTS so the migration is idempotent: running
+    #    it a second time (or after fix_missing_columns.sql was applied manually)
+    #    is safe and produces no error.
+    op.execute(
+        "ALTER TABLE user_profiles "
+        "ADD COLUMN IF NOT EXISTS consent_given BOOLEAN NOT NULL DEFAULT false"
     )
-    op.add_column(
-        "user_profiles",
-        sa.Column("consent_given_at", sa.DateTime(timezone=True), nullable=True),
+    op.execute(
+        "ALTER TABLE user_profiles "
+        "ADD COLUMN IF NOT EXISTS consent_given_at TIMESTAMPTZ"
     )
 
 

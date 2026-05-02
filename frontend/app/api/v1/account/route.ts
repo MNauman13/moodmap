@@ -17,6 +17,7 @@ export async function DELETE(req: NextRequest) {
     backendRes = await fetch(`${BACKEND_URL}/api/v1/account`, {
       method: "DELETE",
       headers: { Authorization: authHeader },
+      signal: AbortSignal.timeout(25_000),
     });
   } catch {
     return NextResponse.json({ detail: "Service unavailable" }, { status: 503 });

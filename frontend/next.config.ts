@@ -60,7 +60,7 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               // Scripts: self + inline (React hydration) + Supabase
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co",
+              "script-src 'self' 'unsafe-inline' https://*.supabase.co",
               // Styles: self + inline (Tailwind runtime) + Google Fonts
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // Fonts: self + Google Fonts CDN

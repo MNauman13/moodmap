@@ -1,9 +1,9 @@
 import os
 import time
-import urllib.request
 import json
 import logging
 from dataclasses import dataclass
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
@@ -37,8 +37,12 @@ def get_supabase_jwks():
     if _jwks_cache is None or time.time() > _jwks_cache_until:
         try:
             jwks_url = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
-            response = urllib.request.urlopen(jwks_url, timeout=5)
-            _jwks_cache = json.loads(response.read())
+            # httpx.get() is a sync call; FastAPI runs sync dependencies in the
+            # default thread-pool executor so this does NOT block the event loop.
+            with httpx.Client(timeout=5.0) as client:
+                response = client.get(jwks_url)
+                response.raise_for_status()
+                _jwks_cache = response.json()
             _jwks_cache_until = time.time() + _JWKS_TTL
         except Exception as e:
             logger.error(f"Failed to fetch JWKS: {e}")

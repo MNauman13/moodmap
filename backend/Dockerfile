@@ -26,7 +26,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends curl \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+    curl \
+    libsndfile1 \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system appgroup && adduser --system --group appuser

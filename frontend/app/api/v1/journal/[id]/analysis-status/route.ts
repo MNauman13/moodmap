@@ -13,13 +13,19 @@ export async function GET(
 
   const { id } = await params;
 
-  const backendRes = await fetch(
-    `${BACKEND_URL}/api/v1/journal/${id}/analysis-status`,
-    {
-      method: "GET",
-      headers: { "Authorization": authHeader },
-    }
-  );
+  let backendRes: Response;
+  try {
+    backendRes = await fetch(
+      `${BACKEND_URL}/api/v1/journal/${id}/analysis-status`,
+      {
+        method: "GET",
+        headers: { "Authorization": authHeader },
+        signal: AbortSignal.timeout(25_000),
+      }
+    );
+  } catch {
+    return NextResponse.json({ detail: "Service unavailable" }, { status: 503 });
+  }
 
   const data = await backendRes.json();
   return NextResponse.json(data, { status: backendRes.status });

@@ -15,14 +15,20 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
 
-    const backendRes = await fetch(`${BACKEND_URL}/api/v1/journal/presigned-url`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": authHeader
-        },
-        body: JSON.stringify(body)
-    })
+    let backendRes: Response
+    try {
+        backendRes = await fetch(`${BACKEND_URL}/api/v1/journal/presigned-url`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": authHeader
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(25_000),
+        })
+    } catch {
+        return NextResponse.json({ detail: "Service unavailable" }, { status: 503 })
+    }
 
     const data = await backendRes.json()
     return NextResponse.json(data, { status: backendRes.status })

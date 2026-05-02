@@ -1,0 +1,41 @@
+# Railway deployment configuration for MoodMap backend.
+# Three services share the same Docker image but run different commands:
+#   api    — FastAPI / Uvicorn (HTTP traffic)
+#   worker — Celery worker (ML analysis, email sending)
+#   beat   — Celery Beat scheduler (periodic nudge/check tasks)
+#
+# Set the following env vars in each Railway service:
+#   DATABASE_URL, REDIS_URL (or CELERY_BROKER_URL / CELERY_RESULT_BACKEND),
+#   ANTHROPIC_API_KEY, RESEND_API_KEY, RESEND_FROM_EMAIL, FRONTEND_URL,
+#   CLOUDFLARE_R2_ENDPOINT, CLOUDFLARE_R2_ACCESS_KEY_ID,
+#   CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME,
+#   FIELD_ENCRYPTION_KEY, SUPABASE_URL, ENVIRONMENT=production
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "backend/Dockerfile"
+# Build context is the repo root so `COPY backend/ ./backend/` resolves correctly.
+dockerContextPath = "."
+
+[[services]]
+name = "api"
+[services.deploy]
+startCommand = "uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 4 --loop uvloop --http httptools --worker-connections 1000"
+healthcheckPath = "/health"
+healthcheckTimeout = 10
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "worker"
+[services.deploy]
+startCommand = "celery -A backend.celery_app worker --loglevel=info --concurrency=2"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "beat"
+[services.deploy]
+startCommand = "celery -A backend.celery_app beat --loglevel=info"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

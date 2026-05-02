@@ -61,10 +61,13 @@ class JournalEntry(Base):
 class MoodScore(Base):
     __tablename__ = 'mood_scores'
     
-    # SQLAlchemy requires a primary key, so we use a composite key of time + user_id
-    time = Column(DateTime(timezone=True), primary_key=True, default=utc_now)
+    # Composite PK: (entry_id, user_id, time).
+    # entry_id is first so it is unique per analysis run, eliminating any
+    # possibility of a PK collision between concurrent analyses for the same user.
+    # time is retained in the PK so TimescaleDB hypertable partitioning still works.
+    entry_id = Column(UUID(as_uuid=True), ForeignKey('journal_entries.id', ondelete='CASCADE'), primary_key=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey('user_profiles.id', ondelete='CASCADE'), primary_key=True, index=True)
-    entry_id = Column(UUID(as_uuid=True), ForeignKey('journal_entries.id', ondelete='CASCADE'))
+    time = Column(DateTime(timezone=True), primary_key=True, default=utc_now)
     
     text_joy = Column(Float)
     text_love = Column(Float)
