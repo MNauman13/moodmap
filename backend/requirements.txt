@@ -134,5 +134,4 @@ gunicorn==25.3.0
 httptools==0.7.1
 uvloop==0.21.0 ; sys_platform != 'win32'
 python-json-logger==3.3.0
-prometheus-fastapi-instrumentator==7.1.0
 psutil==7.0.0
