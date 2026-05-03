@@ -26,7 +26,7 @@ LOW_AROUSAL = {"sad", "neutral", "disgust"}
 
 
 class VoiceEmotionAnalyzer:
-    def __init__(self, model_name: str = "MNauman13/moodmap-huberta"):
+    def __init__(self, model_name: str = "MNauman13/moodmap-hubert"):
         self.model_name = model_name
         self.feature_extractor = None
         self.model = None
@@ -37,11 +37,9 @@ class VoiceEmotionAnalyzer:
             try:
                 self.feature_extractor = AutoFeatureExtractor.from_pretrained(self.model_name)
                 self.model = HubertForSequenceClassification.from_pretrained(self.model_name)
-
                 self.device = torch.device("cpu")
                 self.model.to(self.device)
-
-                logger.info("Voice Emotion Model loaded successfully")
+                logger.info("✅ Voice Emotion Model loaded successfully!")
             except Exception as e:
                 logger.error(f"Failed to load voice model {self.model_name}: {str(e)}")
                 raise e
