@@ -9,7 +9,23 @@ from backend.models.db_models import Base
 current_dir = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(current_dir, ".env"))
 
-DATABASE_URL = os.getenv("DATABASE_URL")  # postgresql+asyncpg://...
+_raw_db_url = os.getenv("DATABASE_URL")  # may arrive as postgres:// or postgresql://
+
+# Normalise to the asyncpg driver so create_async_engine always gets an async URL.
+# Supabase/Railway often provide plain `postgres://` or `postgresql://` without a driver.
+def _normalise_db_url(url: str | None) -> str | None:
+    if not url:
+        return url
+    # SQLAlchemy dropped the bare "postgres://" alias in 1.4+; asyncpg needs explicit driver.
+    for old, new in [
+        ("postgres://", "postgresql+asyncpg://"),
+        ("postgresql://", "postgresql+asyncpg://"),
+    ]:
+        if url.startswith(old):
+            return new + url[len(old):]
+    return url
+
+DATABASE_URL = _normalise_db_url(_raw_db_url)
 
 # Guard: DATABASE_URL may be None during import in CI/test environments that
 # provide a sqlite+aiosqlite URL instead. Replace only when the prefix matches.
