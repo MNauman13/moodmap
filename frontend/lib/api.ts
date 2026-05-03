@@ -200,20 +200,19 @@ export const dashboardApi = {
  * Returns the object_key to include in the journal entry POST body.
  */
 export async function uploadAudioToR2(audioBlob: Blob, fileExtension = "webm"): Promise<string> {
-  const { upload_url, fields, object_key, max_bytes } = await journalApi.getPresignedUrl(fileExtension);
+  const { upload_url, object_key, max_bytes } = await journalApi.getPresignedUrl(fileExtension);
 
   if (audioBlob.size > max_bytes) {
     throw new Error(`Audio file is too large (max ${Math.round(max_bytes / 1024 / 1024)} MB).`);
   }
 
-  // R2 presigned POST requires a multipart form — all policy fields must be included
-  const form = new FormData();
-  Object.entries(fields).forEach(([k, v]) => form.append(k, v));
-  form.append("file", audioBlob, `recording.${fileExtension}`);
+  const uploadRes = await fetch(upload_url, {
+    method: "PUT",
+    body: audioBlob,
+    headers: { "Content-Type": `audio/${fileExtension}` },
+  });
 
-  const uploadRes = await fetch(upload_url, { method: "POST", body: form });
-
-  if (!uploadRes.ok) throw new Error(`R2 upload failed: ${uploadRes.status}`);
+  if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
   return object_key;
 }
 

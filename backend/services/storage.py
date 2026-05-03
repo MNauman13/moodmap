@@ -33,28 +33,27 @@ class R2StorageService:
             expires_in: int = 300,  # 5 minutes
     ) -> dict:
         """
-        Generate a presigned URL for direct browser → R2 upload.
-        The Conditions list enforces a 10 MB max — R2 will reject
-        any upload whose Content-Length falls outside the range.
+        Generate a presigned PUT URL for direct browser → R2 upload.
+        PUT is simpler than POST (no multipart policy fields) and more
+        reliably supported by R2's S3-compatible layer.
         """
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         unique_id = str(uuid.uuid4())[:8]
         object_key = f"users/{user_id}/{timestamp}_{unique_id}.{file_extension}"
 
         try:
-            presigned = self.client.generate_presigned_post(
-                Bucket=self.bucket_name,
-                Key=object_key,
-                Fields={"Content-Type": f"audio/{file_extension}"},
-                Conditions=[
-                    {"Content-Type": f"audio/{file_extension}"},
-                    ["content-length-range", 1, self.MAX_UPLOAD_BYTES],
-                ],
+            url = self.client.generate_presigned_url(
+                "put_object",
+                Params={
+                    "Bucket": self.bucket_name,
+                    "Key": object_key,
+                    "ContentType": f"audio/{file_extension}",
+                },
                 ExpiresIn=expires_in,
             )
             return {
-                "upload_url": presigned["url"],
-                "fields": presigned["fields"],
+                "upload_url": url,
+                "fields": {},
                 "object_key": object_key,
                 "expires_in": expires_in,
                 "max_bytes": self.MAX_UPLOAD_BYTES,

@@ -157,7 +157,7 @@ export default function JournalPage() {
 
   // ── Submit entry ──────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
-    if (!text.trim()) return;
+    if (!text.trim() && !audioBlob && !audioObjectKey) return;
     setSubmitState("submitting");
     setErrorMessage("");
 
