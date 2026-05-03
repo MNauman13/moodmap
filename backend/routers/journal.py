@@ -183,7 +183,7 @@ async def create_journal_entry(
         user_id=user_uuid,
         raw_text=encrypt(body.text),
         audio_key=body.audio_key,
-        word_count=len(body.text.split()),
+        word_count=len(body.text.split()) if body.text else 0,
         mood_tags=body.mood_tags or [],
         status=AnalysisStatus.QUEUED,
     )

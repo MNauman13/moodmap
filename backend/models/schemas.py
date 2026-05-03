@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -8,7 +8,7 @@ from backend.models.db_models import AnalysisStatus
 # --------------- Request Schemas ---------------
 
 class JournalEntryCreate(BaseModel):
-    text: str = Field(..., min_length=1, max_length=2000, description="Journal entry text")
+    text: str = Field(default="", max_length=2000, description="Journal entry text (optional if audio_key provided)")
     audio_key: Optional[str] = Field(
         None,
         description="Cloudflare R2 object key for uploaded audio (optional)"
@@ -19,21 +19,22 @@ class JournalEntryCreate(BaseModel):
         description="Optional pre-selected mood tags (e.g. ['anxious', 'tired'])"
     )
 
+    @model_validator(mode="after")
+    def require_text_or_audio(self):
+        if not self.text.strip() and not self.audio_key:
+            raise ValueError("Provide either journal text or a voice recording.")
+        return self
+
     @field_validator("text")
     @classmethod
     def strip_text(cls, v):
-        stripped = v.strip()
-        if not stripped:
-            raise ValueError("Journal entry cannot be blank")
-        return stripped
+        return v.strip()
 
     @field_validator("audio_key")
     @classmethod
     def validate_audio_key(cls, v):
-        if v is not None:
-            # Basic safety check — key must start with "users/"
-            if v is not None and not v.startswith("users/"):
-                raise ValueError("Invalid audio key format")
+        if v is not None and not v.startswith("users/"):
+            raise ValueError("Invalid audio key format")
         return v
 
 

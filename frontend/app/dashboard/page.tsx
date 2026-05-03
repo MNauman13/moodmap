@@ -429,7 +429,7 @@ export default function DashboardPage() {
                 <div className="py-12 flex flex-col items-center gap-2">
                   <div className="w-9 h-9 rounded-full border border-[#2a2720] flex items-center justify-center text-[#6b6357] text-sm">◌</div>
                   <p className="text-[13px] text-[#6b6357] font-light">No entries yet</p>
-                  <Link href="/journal" className="text-[12px] text-[#c8a96e] hover:underline no-underline">
+                  <Link href="/journal/new" className="text-[12px] text-[#c8a96e] hover:underline no-underline">
                     Start your first entry →
                   </Link>
                 </div>

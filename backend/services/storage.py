@@ -19,8 +19,8 @@ class R2StorageService:
             endpoint_url = os.getenv("CLOUDFLARE_R2_ENDPOINT"),
             aws_access_key_id = os.getenv("CLOUDFLARE_R2_ACCESS_KEY_ID"),
             aws_secret_access_key = os.getenv("CLOUDFLARE_R2_SECRET_ACCESS_KEY"),
-            config = Config(signature_version="s3v4"),
-            region_name="auto"
+            config = Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+            region_name="us-east-1",
         )
 
     # 10 MB hard cap on audio uploads
