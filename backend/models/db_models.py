@@ -46,7 +46,7 @@ class JournalEntry(Base):
     audio_key = Column(String, nullable=True)
     word_count = Column(Integer)
     mood_tags = Column(JSONB, default=list)
-    status = Column(SAEnum(AnalysisStatus, name='analysis_status'), default=AnalysisStatus.PENDING)
+    status = Column(SAEnum(AnalysisStatus, name='analysis_status', values_callable=lambda x: [e.value for e in x]), default=AnalysisStatus.PENDING)
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
     # Relationships
