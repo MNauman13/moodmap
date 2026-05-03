@@ -22,7 +22,9 @@ FROM python:3.11-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    HF_HOME=/tmp/hf_cache \
+    TRANSFORMERS_CACHE=/tmp/hf_cache
 
 WORKDIR /app
 
