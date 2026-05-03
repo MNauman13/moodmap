@@ -24,7 +24,7 @@ from backend.services.storage import r2_storage
 from backend.services.rate_limiter import check_rate_limit
 from backend.services.cache import cache_delete
 from backend.services.encryption import encrypt, decrypt
-from backend.tasks.analysis import analyze_entry
+from backend.celery_app import celery_app as _celery_app
 
 _DAILY_ENTRY_LIMIT = 20  # max journal entries per user per calendar day
 
@@ -191,7 +191,7 @@ async def create_journal_entry(
     await db.commit()
     await db.refresh(entry)
 
-    task = analyze_entry.delay(str(entry.id))
+    task = _celery_app.send_task("backend.tasks.analysis.analyze_entry", args=[str(entry.id)])
     logger.info(f"Queued analysis task {task.id} for entry {entry.id}")
 
     # Bust insights cache so the next dashboard load reflects the new entry
