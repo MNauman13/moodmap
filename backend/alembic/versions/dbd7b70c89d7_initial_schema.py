@@ -90,9 +90,6 @@ def upgrade() -> None:
     op.create_index(op.f('ix_mood_scores_user_id'), 'mood_scores', ['user_id'], unique=False)
     # ### end Alembic commands ###
 
-    # TimescaleDB hypertable setup
-    op.execute("SELECT create_hypertable('mood_scores', 'time');")
-
 
 def downgrade() -> None:
     """Downgrade schema."""
