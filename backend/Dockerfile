@@ -45,14 +45,6 @@ RUN chown -R appuser:appgroup /app
 USER appuser
 
 EXPOSE 8000
-# Production-tuned Uvicorn:
-#   --loop uvloop      faster async event loop (Linux C extension, ~2x throughput)
-#   --http httptools   faster HTTP parser (C extension)
-#   --workers 4        pinned for predictable container memory; tune via WORKERS env if needed
-CMD ["uvicorn", "backend.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "4", \
-     "--loop", "uvloop", \
-     "--http", "httptools", \
-     "--worker-connections", "1000"]
+# Shell form so $PORT (injected by Railway) is expanded at runtime.
+# Falls back to 8000 for local docker run without -e PORT.
+CMD uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 4 --loop uvloop --http httptools
