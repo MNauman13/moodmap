@@ -4,6 +4,7 @@ import resend
 import logging
 
 _FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "MoodMap <onboarding@resend.dev>")
+_REPLY_TO = os.getenv("RESEND_REPLY_TO", "support@mood-map.uk")
 _FRONTEND_URL = os.getenv("FRONTEND_URL", "https://moodmap.app").rstrip("/")
 
 logger = logging.getLogger(__name__)
@@ -243,6 +244,7 @@ def send_nudge_email(to_email: str, username: str, nudge_content: str) -> bool:
     try:
         resend.Emails.send({
             "from": _FROM_EMAIL,
+            "reply_to": _REPLY_TO,
             "to": to_email,
             "subject": "A note from your MoodMap",
             "html": html,
@@ -389,6 +391,7 @@ def send_crisis_email(to_email: str, username: str) -> bool:
     try:
         resend.Emails.send({
             "from": _FROM_EMAIL,
+            "reply_to": _REPLY_TO,
             "to": to_email,
             "subject": "We're here for you — support resources inside",
             "html": html,
