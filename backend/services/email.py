@@ -234,7 +234,7 @@ def send_nudge_email(to_email: str, nudge_content: str) -> bool:
           </tr>
     """
 
-    html = _email_shell(
+    email_html = _email_shell(
         title="A note for you — MoodMap",
         preheader="A gentle nudge from your emotional companion.",
         body_html=body,
@@ -246,7 +246,7 @@ def send_nudge_email(to_email: str, nudge_content: str) -> bool:
             "reply_to": _REPLY_TO,
             "to": to_email,
             "subject": "A note from your MoodMap",
-            "html": html,
+            "html": email_html,
         })
         logger.info("Nudge email sent to %s", to_email)
         return True
@@ -381,7 +381,7 @@ def send_crisis_email(to_email: str) -> bool:
           </tr>
     """
 
-    html = _email_shell(
+    email_html = _email_shell(
         title="We're here for you — MoodMap",
         preheader="Support resources are available right now, any time.",
         body_html=body,
@@ -393,7 +393,7 @@ def send_crisis_email(to_email: str) -> bool:
             "reply_to": _REPLY_TO,
             "to": to_email,
             "subject": "We're here for you — support resources inside",
-            "html": html,
+            "html": email_html,
         })
         logger.info("Crisis email sent to %s", to_email)
         return True
