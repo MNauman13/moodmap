@@ -46,6 +46,25 @@ async function triggerExport(): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
+async function fetchNotifications(): Promise<{ notification_enabled: boolean }> {
+  const auth = await getAuthHeader();
+  if (!auth) throw new Error("Not authenticated");
+  const res = await fetch("/api/v1/account/notifications", { headers: { Authorization: auth } });
+  if (!res.ok) throw new Error("Failed to fetch notification preference");
+  return res.json();
+}
+
+async function postNotifications(value: boolean): Promise<void> {
+  const auth = await getAuthHeader();
+  if (!auth) throw new Error("Not authenticated");
+  const res = await fetch("/api/v1/account/notifications", {
+    method: "POST",
+    headers: { Authorization: auth, "Content-Type": "application/json" },
+    body: JSON.stringify({ notification_enabled: value }),
+  });
+  if (!res.ok) throw new Error("Failed to update notification preference");
+}
+
 async function deleteAccount(): Promise<void> {
   const auth = await getAuthHeader();
   if (!auth) throw new Error("Not authenticated");
@@ -67,6 +86,11 @@ export default function AccountPage() {
   const [consentSaving, setConsentSaving]   = useState(false);
   const [consentMsg, setConsentMsg]         = useState<string | null>(null);
 
+  const [notifEnabled, setNotifEnabled]         = useState<boolean | null>(null);
+  const [notifLoading, setNotifLoading]         = useState(true);
+  const [notifSaving, setNotifSaving]           = useState(false);
+  const [notifMsg, setNotifMsg]                 = useState<string | null>(null);
+
   const [exportLoading, setExportLoading]   = useState(false);
   const [exportMsg, setExportMsg]           = useState<string | null>(null);
 
@@ -79,6 +103,10 @@ export default function AccountPage() {
       .then((d) => { setConsentGiven(d.consent_given); setConsentDate(d.consent_given_at); })
       .catch(() => setConsentGiven(false))
       .finally(() => setConsentLoading(false));
+    fetchNotifications()
+      .then((d) => setNotifEnabled(d.notification_enabled))
+      .catch(() => setNotifEnabled(true))
+      .finally(() => setNotifLoading(false));
   }, []);
 
   async function handleConsentToggle(value: boolean) {
@@ -93,6 +121,20 @@ export default function AccountPage() {
       setConsentMsg("Failed to update consent — please try again.");
     } finally {
       setConsentSaving(false);
+    }
+  }
+
+  async function handleNotifToggle(value: boolean) {
+    setNotifSaving(true);
+    setNotifMsg(null);
+    try {
+      await postNotifications(value);
+      setNotifEnabled(value);
+      setNotifMsg(value ? "Email notifications enabled." : "Email notifications disabled.");
+    } catch {
+      setNotifMsg("Failed to update — please try again.");
+    } finally {
+      setNotifSaving(false);
     }
   }
 
@@ -213,6 +255,51 @@ export default function AccountPage() {
 
                 {consentMsg && (
                   <p className="text-[12px] text-[#a09080]">{consentMsg}</p>
+                )}
+              </div>
+            )}
+          </Section>
+
+          {/* ── Notifications ── */}
+          <Section title="Email notifications" delay={0.13}>
+            {notifLoading ? (
+              <div className="h-10 w-full animate-pulse rounded-lg bg-[#141210]" />
+            ) : (
+              <div className="space-y-4">
+                <p className="text-[13px] text-[#8a8070] font-light leading-relaxed">
+                  When enabled, MoodMap may send you a gentle nudge if your mood patterns
+                  suggest you could use some support. You can turn this off at any time.
+                </p>
+
+                <div className="flex items-center justify-between rounded-xl border border-[#1a1815] bg-[#0c0b09] px-5 py-4">
+                  <div>
+                    <p className="text-[13px] text-[#c8bfb0]">
+                      {notifEnabled ? "Notifications on" : "Notifications off"}
+                    </p>
+                    <p className="text-[11px] text-[#6b6357] mt-0.5">
+                      Nudge and crisis support emails
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleNotifToggle(!notifEnabled)}
+                    disabled={notifSaving || notifEnabled === null}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                      notifEnabled ? "bg-[#c8a96e]" : "bg-[#2a2720]"
+                    }`}
+                    role="switch"
+                    aria-checked={!!notifEnabled}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                        notifEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {notifMsg && (
+                  <p className="text-[12px] text-[#a09080]">{notifMsg}</p>
                 )}
               </div>
             )}

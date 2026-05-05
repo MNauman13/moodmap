@@ -268,14 +268,13 @@ def send_nudge(state: AgentState) -> dict:
         if os.getenv("ENVIRONMENT", "production").lower() != "production":
             recipient_email = os.getenv("NUDGE_EMAIL_OVERRIDE") or recipient_email
 
-        if recipient_email:
-            name = recipient_email.split("@")[0].capitalize()
+        notifications_on = user.notification_enabled if user else True
+        if recipient_email and notifications_on:
             if state.get("nudge_type") == "crisis" or state.get("is_crisis"):
-                send_crisis_email(to_email=recipient_email, username=name)
+                send_crisis_email(to_email=recipient_email)
             else:
                 send_nudge_email(
                     to_email=recipient_email,
-                    username=name,
                     nudge_content=state["nudge_content"],
                 )
 

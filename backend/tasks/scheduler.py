@@ -41,6 +41,7 @@ def run_immediate_crisis_nudge(user_id: str):
         user_uuid = uuid.UUID(user_id)  # convert once; used for all DB operations
 
         recipient_email: str | None = None
+        notifications_on: bool = True
 
         with SyncSessionLocal() as db:
             # Respect the 24-hour cooldown so we never double-send
@@ -63,22 +64,20 @@ def run_immediate_crisis_nudge(user_id: str):
 
             user = db.query(UserProfile).filter(UserProfile.id == user_uuid).first()
 
-            # Resolve email while the session is still open so we don't access
-            # attributes on a detached instance outside the with-block.
+            # Resolve email and notification preference while the session is still
+            # open so we don't access attributes on a detached instance outside the with-block.
             if user:
                 if user.email:
                     recipient_email = user.email
                 elif user.username and "@" in user.username:
                     recipient_email = user.username
+                notifications_on = bool(user.notification_enabled)
 
             db.commit()
 
-        if recipient_email:
-            send_crisis_email(
-                to_email=recipient_email,
-                username=recipient_email.split("@")[0].capitalize(),
-            )
-        else:
+        if recipient_email and notifications_on:
+            send_crisis_email(to_email=recipient_email)
+        elif not recipient_email:
             logger.warning("Crisis nudge saved for %s but no email address on record", user_id)
 
     except Exception as e:

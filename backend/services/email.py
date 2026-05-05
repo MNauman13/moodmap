@@ -88,10 +88,9 @@ def _email_shell(title: str, preheader: str, body_html: str) -> str:
               <table cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="border-bottom:1px solid {_BORDER};padding-bottom:20px;">
-                    <span style="font-family:{_FONT_SANS};font-size:11px;letter-spacing:0.18em;
-                                 text-transform:uppercase;color:{_TEXT_FAINT};font-weight:400;">
-                      moodmap
-                    </span>
+                    <span style="font-family:{_FONT_SERIF};font-size:20px;font-weight:400;
+                                 color:{_TEXT_HI};letter-spacing:0.01em;">Mood<span
+                      style="font-style:italic;color:{_GOLD};">Map</span></span>
                   </td>
                 </tr>
               </table>
@@ -107,7 +106,7 @@ def _email_shell(title: str, preheader: str, body_html: str) -> str:
               <p style="margin:0 0 6px;font-family:{_FONT_SANS};font-size:12px;
                         font-weight:300;color:{_TEXT_FAINT};line-height:1.6;">
                 You received this because email notifications are enabled on your MoodMap account.
-                To stop these, visit <strong style="font-weight:400;">Account &rsaquo; Settings</strong>
+                To stop these, visit <strong style="font-weight:400;">Account</strong>
                 and turn off notifications.
               </p>
               <p style="margin:0;font-family:{_FONT_SANS};font-size:11px;
@@ -128,7 +127,7 @@ def _email_shell(title: str, preheader: str, body_html: str) -> str:
 
 # ── Nudge email ───────────────────────────────────────────────────────────────
 
-def send_nudge_email(to_email: str, username: str, nudge_content: str) -> bool:
+def send_nudge_email(to_email: str, nudge_content: str) -> bool:
     """
     Sends a Claude-generated wellness nudge wrapped in the MoodMap design language.
     nudge_content is already plaintext (caller decrypts before passing here).
@@ -164,7 +163,7 @@ def send_nudge_email(to_email: str, username: str, nudge_content: str) -> bool:
               </p>
               <h1 style="margin:0;font-family:{_FONT_SERIF};font-size:26px;font-weight:400;
                          color:{_TEXT_HI};line-height:1.3;">
-                Hi {username} &mdash; we&rsquo;ve been thinking about you.
+                Hey &mdash; we&rsquo;ve been thinking about you.
               </h1>
             </td>
           </tr>
@@ -258,7 +257,7 @@ def send_nudge_email(to_email: str, username: str, nudge_content: str) -> bool:
 
 # ── Crisis email ──────────────────────────────────────────────────────────────
 
-def send_crisis_email(to_email: str, username: str) -> bool:
+def send_crisis_email(to_email: str) -> bool:
     """
     Sends immediate crisis support resources.
     Tone: warm, human, non-clinical. Avoids sounding automated.
@@ -311,7 +310,7 @@ def send_crisis_email(to_email: str, username: str) -> bool:
               </p>
               <h1 style="margin:0;font-family:{_FONT_SERIF};font-size:26px;font-weight:400;
                          color:{_TEXT_HI};line-height:1.3;">
-                Hi {username} &mdash; we noticed something in your words.
+                Hey &mdash; we noticed something in your words.
               </h1>
             </td>
           </tr>

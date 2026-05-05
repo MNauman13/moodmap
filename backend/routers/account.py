@@ -54,10 +54,21 @@ async def update_consent(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     user_uuid = uuid.UUID(current_user.user_id)
+
+    # Primary lookup: by Supabase user UUID (the normal path)
     profile = await db.get(UserProfile, user_uuid)
 
     if profile is None:
-        # First-time sign-in: create profile with consent flag
+        # Fallback: a previous signup may have left a row with this email under
+        # a different UUID (e.g. the user re-signed-up after account deletion).
+        # Rather than failing with a unique constraint error, update that row.
+        email_result = await db.execute(
+            select(UserProfile).where(UserProfile.email == current_user.email)
+        )
+        profile = email_result.scalar_one_or_none()
+
+    if profile is None:
+        # Genuinely new user — create their profile now
         profile = UserProfile(
             id=user_uuid,
             email=current_user.email,
@@ -93,6 +104,45 @@ async def get_consent(
         "consent_given": bool(profile.consent_given),
         "consent_given_at": profile.consent_given_at.isoformat() if profile.consent_given_at else None,
     }
+
+
+# ─── Notifications ───────────────────────────────────────────────────────────
+
+class NotificationPayload(BaseModel):
+    notification_enabled: bool
+
+
+@router.get(
+    "/notifications",
+    summary="Return current email notification preference",
+)
+async def get_notifications(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    user_uuid = uuid.UUID(current_user.user_id)
+    profile = await db.get(UserProfile, user_uuid)
+    if profile is None:
+        return {"notification_enabled": True}
+    return {"notification_enabled": bool(profile.notification_enabled)}
+
+
+@router.post(
+    "/notifications",
+    summary="Enable or disable email notifications",
+)
+async def update_notifications(
+    body: NotificationPayload,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    user_uuid = uuid.UUID(current_user.user_id)
+    profile = await db.get(UserProfile, user_uuid)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="User profile not found")
+    profile.notification_enabled = body.notification_enabled
+    await db.commit()
+    return {"notification_enabled": body.notification_enabled}
 
 
 # ─── Export (Art. 15 / Art. 20) ──────────────────────────────────────────────
