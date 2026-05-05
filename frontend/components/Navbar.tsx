@@ -26,7 +26,7 @@ export default function Navbar() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.replace("/login")
+    window.location.href = "/login"
   }
 
   return (

@@ -22,7 +22,11 @@ export default function LoginPage() {
         setIsLoading(false)
 
         if (error) {
-            setError(error.message)
+            if (error.message.toLowerCase().includes("email not confirmed")) {
+                setError("Please verify your email before logging in. Check your inbox for the confirmation link.")
+            } else {
+                setError(error.message)
+            }
             return
         }
 

@@ -246,7 +246,7 @@ export default function DashboardPage() {
               </h1>
             </div>
             <Link
-              href="/journal"
+              href="/journal/new"
               className="inline-flex items-center gap-2 px-6 py-3 border border-[#2a2720] rounded-full text-[#a09080] text-[13px] no-underline transition-all duration-200 hover:border-[#c8a96e] hover:text-[#c8a96e]"
             >
               <span className="text-lg leading-none">+</span> New entry

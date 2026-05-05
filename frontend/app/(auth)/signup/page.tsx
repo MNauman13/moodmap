@@ -2,7 +2,6 @@
 
 import { supabase } from "@/lib/supabase"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export default function SignUp() {
@@ -11,7 +10,7 @@ export default function SignUp() {
     const [consent, setConsent]     = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError]         = useState<string | null>(null)
-    const router = useRouter()
+    const [confirmed, setConfirmed] = useState(false)
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -24,7 +23,13 @@ export default function SignUp() {
 
         setIsLoading(true)
 
-        const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+        const { data, error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                emailRedirectTo: `${window.location.origin}/verified`,
+            },
+        })
 
         if (signUpError) {
             setError(signUpError.message)
@@ -40,8 +45,27 @@ export default function SignUp() {
         }
 
         setIsLoading(false)
-        alert("Check your email for the confirmation link!")
-        router.push('/login')
+        setConfirmed(true)
+    }
+
+    if (confirmed) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#0e0d0b] px-4 font-sans">
+                <div className="w-full max-w-md rounded-2xl border border-[#1a1815] bg-[#0c0b09] p-8 shadow-2xl text-center">
+                    <div className="w-14 h-14 rounded-full border border-[#c8a96e] flex items-center justify-center mx-auto mb-6 text-[#c8a96e] text-2xl">
+                        ✉
+                    </div>
+                    <h2 className="font-['Lora'] text-2xl text-[#c8bfb0] mb-3">Check your inbox</h2>
+                    <p className="text-[13px] text-[#6b6357] leading-relaxed mb-6">
+                        We&apos;ve sent a confirmation link to <span className="text-[#a09080]">{email}</span>.
+                        Click it to verify your account before logging in.
+                    </p>
+                    <Link href="/login" className="text-[13px] text-[#c8a96e] hover:underline underline-offset-4 no-underline">
+                        Back to login →
+                    </Link>
+                </div>
+            </div>
+        )
     }
 
     return (
