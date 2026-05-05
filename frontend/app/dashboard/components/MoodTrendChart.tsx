@@ -98,13 +98,14 @@ export default function MoodTrendChart({ data, loading }: Props) {
       ) : (
         <div className={styles.chartWrap}>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: -28 }}>
+            <LineChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
               <XAxis
                 dataKey="date"
                 tickFormatter={formatAxisDate}
                 tickLine={false}
                 axisLine={false}
                 interval="preserveStartEnd"
+                tick={{ dy: 6 }}
               />
               <YAxis
                 domain={[-1, 1]}
@@ -112,6 +113,7 @@ export default function MoodTrendChart({ data, loading }: Props) {
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v: number) => v.toFixed(1)}
+                width={40}
               />
               <ReferenceLine y={0} strokeDasharray="4 4" />
               <Tooltip content={<MoodTooltip />} />

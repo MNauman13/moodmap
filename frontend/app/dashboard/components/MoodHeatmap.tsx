@@ -35,25 +35,30 @@ function buildGrid(data: TrendDataPoint[]): DayCell[][] {
   // MoodScore.time is set to entry.created_at in analysis.py,
   // so the dates in calendar_data are the journal entry dates — correct.
   const scoreMap = new Map(data.map((d) => [d.date, d.score]));
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
-  // Start from the most recent Sunday, go back 7 weeks
-  const startDay = new Date(today);
-  startDay.setDate(today.getDate() - today.getDay() - 7 * 7);
+  // Use UTC throughout so date keys match the backend's UTC-based dates.
+  // Using local dates (setHours + toISOString) shifts every cell by the
+  // UTC offset, causing score lookup mismatches for non-UTC users.
+  const now = new Date();
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const todayMonth = todayUTC.getUTCMonth();
+
+  // Start from the most recent Sunday (UTC), go back 7 weeks
+  const startDay = new Date(todayUTC);
+  startDay.setUTCDate(todayUTC.getUTCDate() - todayUTC.getUTCDay() - 7 * 7);
 
   const weeks: DayCell[][] = [];
   for (let w = 0; w < 8; w++) {
     const week: DayCell[] = [];
     for (let d = 0; d < 7; d++) {
       const date = new Date(startDay);
-      date.setDate(startDay.getDate() + w * 7 + d);
-      const iso = date.toISOString().slice(0, 10);
+      date.setUTCDate(startDay.getUTCDate() + w * 7 + d);
+      const iso = date.toISOString().slice(0, 10); // always UTC — matches backend keys
       week.push({
         date: iso,
         score: scoreMap.get(iso) ?? null,
-        isCurrentMonth: date.getMonth() === today.getMonth(),
-        isFuture: date > today,
+        isCurrentMonth: date.getUTCMonth() === todayMonth,
+        isFuture: date > todayUTC,
       });
     }
     weeks.push(week);
@@ -67,11 +72,15 @@ function getMonthLabels(weeks: DayCell[][]): { label: string; col: number }[] {
   const seen = new Set<string>();
   const out: { label: string; col: number }[] = [];
   weeks.forEach((week, i) => {
-    const d = new Date(week[0].date);
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    // Parse the ISO string as UTC (append Z so browsers don't treat it as local)
+    const d = new Date(week[0].date + "T00:00:00Z");
+    const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
     if (!seen.has(key)) {
       seen.add(key);
-      out.push({ label: d.toLocaleDateString("en-GB", { month: "short" }), col: i });
+      out.push({
+        label: d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" }),
+        col: i,
+      });
     }
   });
   return out;

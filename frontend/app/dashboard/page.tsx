@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { dashboardApi } from "@/lib/api";
+import { dashboardApi, journalApi } from "@/lib/api";
 import type { InsightsResponse, JournalEntryResponse, TrendDataPoint } from "@/lib/api";
 import MoodTrendChart, { scoreToMeta } from "./components/MoodTrendChart";
 import EmotionBreakdown from "./components/EmotionBreakdown";
@@ -100,8 +100,9 @@ function StatCell({ label, loading, value, sub, valueColor, barWidth, barColor }
 // Keys capitalised to match insights.py's .capitalize() output
 
 const EMOTION_COLORS: Record<string, string> = {
-  Joy: "#c8a96e", Sadness: "#5c7a9e", Anger: "#b85c4a",
-  Fear: "#7a6e9e", Disgust: "#5c7a5c", Surprise: "#9e8a5c", Neutral: "#5a5550",
+  Joy: "#c8a96e", Love: "#c87a8a", Optimism: "#8aad6e",
+  Sadness: "#5c7a9e", Anger: "#b85c4a", Fear: "#7a6e9e",
+  Disgust: "#5c7a5c", Surprise: "#9e8a5c", Neutral: "#5a5550",
 };
 
 // ── Page ───────────────────────────────────────────────────────
@@ -149,8 +150,10 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  // ── SSE stream while the latest entry is still being analysed ───
-  // Uses fetch (not EventSource) so we can attach the Authorization header.
+  // ── Poll while the latest entry is still being analysed ─────────
+  // SSE is not used because Next.js rewrites buffer streaming responses,
+  // preventing server-sent events from reaching the browser. Polling the
+  // analysis-status endpoint every 3 s is simpler and reliably works.
   const pendingEntry =
     entries[0] && !isDone(entries[0].status) && !isFailed(entries[0].status)
       ? entries[0]
@@ -159,54 +162,39 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!pendingEntry) return;
     const entryId = pendingEntry.id;
-    const controller = new AbortController();
+    let cancelled = false;
 
     (async () => {
-      try {
-        const { supabase } = await import("@/lib/supabase");
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        const res = await fetch(`/api/v1/journal/${entryId}/analysis-stream`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          signal: controller.signal,
-        });
-
-        if (!res.body) return;
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          // SSE lines look like "data: completed\n\n"
-          for (const line of chunk.split("\n")) {
-            if (!line.startsWith("data:")) continue;
-            const receivedStatus = line.replace("data:", "").trim();
-            if (isDone(receivedStatus) || isFailed(receivedStatus)) {
-              reader.cancel();
-              await loadData();
-              if (isDone(receivedStatus)) {
-                setJustFinished(true);
-                setTimeout(() => setJustFinished(false), 4000);
-              }
-              return;
+      while (!cancelled) {
+        await new Promise<void>((r) => setTimeout(r, 3000));
+        if (cancelled) break;
+        try {
+          const { status } = await journalApi.getAnalysisStatus(entryId);
+          if (isDone(status) || isFailed(status)) {
+            await loadData();
+            if (isDone(status)) {
+              setJustFinished(true);
+              setTimeout(() => setJustFinished(false), 4000);
             }
+            break;
           }
+        } catch {
+          // transient network error — keep polling
         }
-      } catch {
-        // Aborted on unmount — no action needed
       }
     })();
 
-    return () => controller.abort();
+    return () => { cancelled = true; };
   }, [pendingEntry?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived stats ──────────────────────────────────────────────
-  const latestScore = insights?.trend_data?.at(-1)?.score ?? null;
+  // "Right now" uses the most recent completed entry's individual score
+  // and dominant emotion, not the aggregated daily average from trend_data.
+  const latestCompletedEntry = entries.find(e => isDone(e.status));
+  const latestScore = latestCompletedEntry?.mood_scores?.fused_score
+    ?? insights?.trend_data?.at(-1)?.score
+    ?? null;
+  const latestDominantEmotion = latestCompletedEntry?.mood_scores?.dominant_emotion ?? null;
   const latestMeta  = scoreToMeta(latestScore);
 
   // Fix 4: explicit types on reduce so TypeScript doesn't infer `any`
@@ -348,9 +336,9 @@ export default function DashboardPage() {
             <StatCell
               label="Right now"
               loading={loading}
-              value={latestMeta.label}
+              value={latestDominantEmotion ?? latestMeta.label}
               sub={latestScore !== null ? `Score ${latestScore > 0 ? "+" : ""}${latestScore.toFixed(2)}` : "No entries yet"}
-              valueColor={latestMeta.color}
+              valueColor={latestDominantEmotion ? (EMOTION_COLORS[latestDominantEmotion] ?? latestMeta.color) : latestMeta.color}
               barWidth={latestScore !== null ? ((latestScore + 1) / 2) * 100 : 50}
               barColor={latestMeta.color}
             />
