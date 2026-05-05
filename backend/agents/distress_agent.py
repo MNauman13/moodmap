@@ -123,6 +123,16 @@ def check_threshold(state: AgentState) -> dict:
         if all(score < -0.65 for score in scores[-3:]) and traj["slope"] <= -0.2:
             is_crisis = True
             distress = True
+    elif len(scores) >= 1:
+        # Fewer than 3 data points — can't compute a reliable trajectory,
+        # but a single very negative score still warrants intervention.
+        # These thresholds are tighter than the trajectory path to avoid
+        # over-alerting on sparse data.
+        latest = scores[-1]
+        if latest < -0.50:
+            distress = True
+        if latest < -0.75:
+            is_crisis = True
 
     logger.info("Threshold check complete. Distress: %s, Crisis: %s", distress, is_crisis)
     return {"distress_detected": distress, "is_crisis": is_crisis}
