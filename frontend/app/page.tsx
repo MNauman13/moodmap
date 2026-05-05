@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
+import { supabase } from '@/lib/supabase'
+import Logo from '@/components/Logo'
 
 // ── Count-up hook ──────────────────────────────────────────────
 function useCountUp(end: number, duration = 2200, active = false): number {
@@ -61,12 +63,12 @@ const FEATURES = [
   {
     icon: '🎙',
     title: 'Voice + Text Journaling',
-    desc: 'Capture your thoughts however feels right — type freely or speak your mind. Audio is analysed alongside your words.',
+    desc: 'Capture your thoughts however feels right — type freely or speak your mind. Audio is understood alongside your words.',
   },
   {
     icon: '🧠',
-    title: '7-Dimension Emotion AI',
-    desc: 'Our RoBERTa model detects joy, sadness, anger, fear, disgust, surprise, and neutrality — not just "good" or "bad".',
+    title: '7-Emotion Recognition',
+    desc: 'Our emotion AI detects joy, sadness, anger, fear, disgust, surprise, and neutrality — not just "good" or "bad".',
   },
   {
     icon: '📊',
@@ -75,31 +77,31 @@ const FEATURES = [
   },
   {
     icon: '💌',
-    title: 'AI-Powered Nudges',
-    desc: 'When your trajectory dips, Claude generates personalised interventions — breathing, CBT, or social prompts — based on what has helped you before.',
+    title: 'Personalised Nudges',
+    desc: 'When your mood dips, MoodMap sends personalised suggestions — breathing exercises, reflective prompts, or social activities — based on what has helped you before.',
   },
   {
     icon: '🚨',
-    title: 'Crisis Detection',
-    desc: 'If your entries contain crisis signals, an immediate support message is sent with UK helplines — no waiting until the next scheduled check.',
+    title: 'Crisis Support',
+    desc: 'If your entries show signs of distress, an immediate support message is sent with UK helplines — no waiting until the next check.',
   },
   {
     icon: '🔒',
     title: 'Privacy First',
-    desc: 'Audio uploaded directly to encrypted storage. Your entries are never used for training. Only you hold the key to your story.',
+    desc: 'Audio goes directly to encrypted storage. Your entries are never used for training. Only you hold the key to your story.',
   },
 ]
 
 const STEPS = [
   { n: '01', title: 'Write or speak', desc: 'Open the journal and capture whatever is on your mind — text, audio, or both. No judgment, no structure required.' },
-  { n: '02', title: 'AI analyses your emotions', desc: 'In the background, MoodMap runs multimodal analysis — text sentiment and vocal tone — producing a fused emotional score.' },
+  { n: '02', title: 'AI analyses your emotions', desc: 'MoodMap listens to both your words and the tone of your voice to build a picture of how you are really feeling.' },
   { n: '03', title: 'Understand and grow', desc: 'Your dashboard updates with trends, patterns, and personalised nudges that adapt to your history over time.' },
 ]
 
 const MARQUEE_ITEMS = [
-  'Voice journaling', 'Emotion AI', 'Mood heatmap', 'Crisis detection',
-  'Personalised nudges', 'Trend charts', 'Multimodal analysis', 'Secure storage',
-  'UK helplines', 'LangGraph agent', 'RoBERTa model', 'Privacy first',
+  'Voice journaling', 'Emotion tracking', 'Mood heatmap', 'Crisis support',
+  'Personalised nudges', 'Trend charts', 'Daily check-ins', 'Secure storage',
+  'UK helplines', 'Smart insights', 'Voice + text', 'Privacy first',
 ]
 
 // ── Sub-components ─────────────────────────────────────────────
@@ -114,6 +116,13 @@ function Navbar() {
     return () => window.removeEventListener('scroll', fn)
   }, [])
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
+  const userInitial = session?.user?.email?.[0]?.toUpperCase() ?? '?'
+
   return (
     <nav
       className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
@@ -124,31 +133,48 @@ function Navbar() {
       }}
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <span className="font-['Lora'] text-[20px] font-medium tracking-tight text-[#e8e4dc]">
-          Mood<span className="text-[#c8a96e]">Map</span>
-        </span>
+        <Logo size="md" href="/" />
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="rounded-full px-5 py-2 text-[13px] font-light text-[#c8bfb0] transition-colors hover:text-[#e8e4dc]"
-          >
-            Sign in
-          </Link>
           {session ? (
-            <Link
-              href="/dashboard"
-              className="rounded-full bg-[#c8a96e] px-5 py-2 text-[13px] font-medium text-[#0e0d0b] transition-all hover:bg-[#d4b87a]"
-            >
-              Dashboard →
-            </Link>
+            <>
+              {/* User avatar + email */}
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-full bg-[#1e1c18] border border-[#2a2720] flex items-center justify-center text-[11px] font-medium text-[#c8a96e]">
+                  {userInitial}
+                </div>
+                <span className="hidden text-[12px] font-light text-[#6b6357] sm:block max-w-[160px] truncate">
+                  {session.user.email}
+                </span>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="rounded-full px-4 py-2 text-[12px] font-light text-[#6b6357] transition-colors hover:text-[#c8a96e]"
+              >
+                Sign out
+              </button>
+              <Link
+                href="/dashboard"
+                className="rounded-full bg-[#c8a96e] px-5 py-2 text-[13px] font-medium text-[#0e0d0b] transition-all hover:bg-[#d4b87a]"
+              >
+                Dashboard →
+              </Link>
+            </>
           ) : (
-            <Link
-              href="/signup"
-              className="rounded-full bg-[#c8a96e] px-5 py-2 text-[13px] font-medium text-[#0e0d0b] transition-all hover:bg-[#d4b87a]"
-            >
-              Get started
-            </Link>
+            <>
+              <Link
+                href="/login"
+                className="rounded-full px-5 py-2 text-[13px] font-light text-[#c8bfb0] transition-colors hover:text-[#e8e4dc]"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-full bg-[#c8a96e] px-5 py-2 text-[13px] font-medium text-[#0e0d0b] transition-all hover:bg-[#d4b87a]"
+              >
+                Get started
+              </Link>
+            </>
           )}
         </div>
       </div>
@@ -202,7 +228,7 @@ function StatCard({ value, suffix, prefix = '', label, source, active }: {
   return (
     <motion.div
       variants={fadeUp}
-      className="group relative overflow-hidden rounded-2xl border border-[#1a1815] bg-[#0c0b09] p-7 transition-all duration-300 hover:border-[#c8a96e]/30"
+      className="group relative overflow-hidden rounded-2xl border border-[#252220] bg-[#0c0b09] p-7 transition-all duration-300 hover:border-[#c8a96e]/30"
     >
       <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
         style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(200,169,110,0.06) 0%, transparent 70%)' }} />
@@ -236,7 +262,7 @@ function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc:
       variants={fadeUp}
       onMouseMove={handleMove}
       onMouseLeave={handleLeave}
-      className="group cursor-default rounded-2xl border border-[#1a1815] bg-[#0c0b09] p-7 transition-all duration-200"
+      className="group cursor-default rounded-2xl border border-[#252220] bg-[#0c0b09] p-7 transition-all duration-200"
       style={{ transformStyle: 'preserve-3d', willChange: 'transform' }}
     >
       <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl border border-[#2a2720] bg-[#141210] text-[22px] transition-all duration-300 group-hover:border-[#c8a96e]/40">
@@ -476,22 +502,12 @@ export default function LandingPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="mt-6 text-[11px] text-[#3a3428]"
+            className="mt-6 text-[11px] text-[#6b6357]"
           >
             Not a substitute for professional mental health care. If you are in crisis, call 116 123.
           </motion.p>
         </motion.div>
 
-        {/* Scroll cue */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1, duration: 0.6 }}
-          className="absolute bottom-10 flex flex-col items-center gap-2"
-        >
-          <div className="h-8 w-[1px] bg-gradient-to-b from-transparent to-[#c8a96e] opacity-50" />
-          <span className="text-[10px] uppercase tracking-[0.15em] text-[#3a3428]">Scroll</span>
-        </motion.div>
       </section>
 
       {/* ── Marquee ───────────────────────────────────────────── */}
@@ -507,7 +523,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── Stats ─────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 py-28">
+      <section className="mx-auto max-w-6xl px-6 py-20">
         <motion.div
           variants={fadeUp}
           initial="hidden"
@@ -522,7 +538,7 @@ export default function LandingPage() {
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, amount: 0.3 }}
-          className="font-['Lora'] text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] mb-16 max-w-2xl"
+          className="font-['Lora'] text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] mb-12 max-w-2xl"
         >
           Mental health affects everyone.<br />
           <em className="text-[#c8a96e]">Most people suffer in silence.</em>
@@ -543,7 +559,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── How it works ──────────────────────────────────────── */}
-      <section className="border-t border-[#1a1815] bg-[#0c0b09] py-28">
+      <section className="border-t border-[#1a1815] bg-[#0c0b09] py-20">
         <div className="mx-auto max-w-6xl px-6">
           <motion.div
             variants={fadeUp}
@@ -552,7 +568,7 @@ export default function LandingPage() {
             viewport={{ once: true, amount: 0.3 }}
           >
             <span className="text-[11px] uppercase tracking-[0.14em] text-[#6b6357]">How it works</span>
-            <h2 className="font-['Lora'] mt-3 text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] mb-20">
+            <h2 className="font-['Lora'] mt-3 text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] mb-12">
               Three steps to clarity.
             </h2>
           </motion.div>
@@ -568,10 +584,7 @@ export default function LandingPage() {
                 transition={{ delay: i * 0.15 }}
                 className="relative"
               >
-                {i < STEPS.length - 1 && (
-                  <div className="absolute top-5 left-[calc(100%+1rem)] hidden w-[calc(100%-2rem)] h-px bg-gradient-to-r from-[#2a2720] to-transparent md:block" />
-                )}
-                <span className="font-['Lora'] text-[48px] font-normal text-[#1a1815] leading-none select-none">
+                <span className="font-['Lora'] text-[48px] font-normal leading-none select-none" style={{ color: 'rgba(200,169,110,0.25)' }}>
                   {step.n}
                 </span>
                 <h3 className="font-['Lora'] text-[20px] font-medium text-[#c8bfb0] mt-4 mb-3">{step.title}</h3>
@@ -583,13 +596,13 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ──────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 py-28">
+      <section className="mx-auto max-w-6xl px-6 py-20">
         <motion.div
           variants={fadeUp}
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, amount: 0.3 }}
-          className="mb-16"
+          className="mb-12"
         >
           <span className="text-[11px] uppercase tracking-[0.14em] text-[#6b6357]">Features</span>
           <h2 className="font-['Lora'] mt-3 text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] max-w-xl">
@@ -609,14 +622,14 @@ export default function LandingPage() {
       </section>
 
       {/* ── App Preview ───────────────────────────────────────── */}
-      <section className="border-t border-[#1a1815] bg-[#0c0b09] py-28 overflow-hidden">
+      <section className="border-t border-[#1a1815] bg-[#0c0b09] py-20 overflow-hidden">
         <div className="mx-auto max-w-6xl px-6">
           <motion.div
             variants={fadeUp}
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, amount: 0.3 }}
-            className="mb-16 text-center"
+            className="mb-12 text-center"
           >
             <span className="text-[11px] uppercase tracking-[0.14em] text-[#6b6357]">See it in action</span>
             <h2 className="font-['Lora'] mt-3 text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2]">
@@ -639,7 +652,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Privacy ───────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 py-28">
+      <section className="mx-auto max-w-6xl px-6 py-20">
         <motion.div
           variants={stagger}
           initial="hidden"
@@ -670,7 +683,7 @@ export default function LandingPage() {
               <motion.div
                 key={p.title}
                 variants={fadeUp}
-                className="flex gap-4 rounded-xl border border-[#1a1815] bg-[#0c0b09] p-5"
+                className="flex gap-4 rounded-xl border border-[#252220] bg-[#0c0b09] p-5"
               >
                 <span className="text-[22px] shrink-0">{p.icon}</span>
                 <div>
@@ -684,7 +697,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Final CTA ─────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-t border-[#1a1815] py-32 text-center">
+      <section className="relative overflow-hidden border-t border-[#1a1815] py-20 text-center">
         <div className="pointer-events-none absolute inset-0">
           <div
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-20 blur-[100px]"
@@ -732,7 +745,7 @@ export default function LandingPage() {
             )}
           </div>
 
-          <p className="mt-8 text-[11px] text-[#2a2720]">
+          <p className="mt-8 text-[11px] text-[#6b6357]">
             MoodMap is a wellness tool, not a medical device. Always speak to a qualified professional if you are concerned about your mental health.
           </p>
         </motion.div>
@@ -741,11 +754,9 @@ export default function LandingPage() {
       {/* ── Footer ────────────────────────────────────────────── */}
       <footer className="border-t border-[#1a1815] px-6 py-12">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">
-          <span className="font-['Lora'] text-[18px] font-medium text-[#e8e4dc]">
-            Mood<span className="text-[#c8a96e]">Map</span>
-          </span>
-          <p className="text-[12px] font-light text-[#3a3428]">
-            © {new Date().getFullYear()} MoodMap. Built with care for mental wellness.
+          <Logo size="sm" href="/" />
+          <p className="text-[12px] font-light text-[#6b6357]">
+            Every entry is a step toward understanding yourself. You&apos;re doing better than you think. 🌱
           </p>
         </div>
       </footer>
