@@ -58,7 +58,7 @@ export default function SignUp() {
                     <h2 className="font-['Lora'] text-2xl text-[#c8bfb0] mb-3">Check your inbox</h2>
                     <p className="text-[13px] text-[#6b6357] leading-relaxed mb-6">
                         We&apos;ve sent a confirmation link to <span className="text-[#a09080]">{email}</span>.
-                        Click it to verify your account before logging in.
+                        Click it to verify your account — you&apos;ll be signed in automatically and taken to your dashboard.
                     </p>
                     <Link href="/login" className="text-[13px] text-[#c8a96e] hover:underline underline-offset-4 no-underline">
                         Back to login →

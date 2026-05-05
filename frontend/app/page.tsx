@@ -67,8 +67,8 @@ const FEATURES = [
   },
   {
     icon: '🧠',
-    title: '7-Emotion Recognition',
-    desc: 'Our emotion AI detects joy, sadness, anger, fear, disgust, surprise, and neutrality — not just "good" or "bad".',
+    title: '9-Emotion Recognition',
+    desc: 'Our emotion AI detects joy, love, optimism, sadness, anger, fear, disgust, surprise, and neutrality — not just "good" or "bad".',
   },
   {
     icon: '📊',

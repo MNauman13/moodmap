@@ -14,6 +14,23 @@ export default function VerifiedPage() {
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (!session) return // No session — just show the page, let them log in manually
 
+            // Apply any pending consent that was captured during signup.
+            // We do this here (rather than relying solely on the AuthProvider
+            // SIGNED_IN event) because this page is the guaranteed landing point
+            // after email confirmation, so timing is deterministic.
+            if (localStorage.getItem('moodmap_pending_consent') === 'true') {
+                fetch('/api/v1/account/consent', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ consent_given: true }),
+                }).then(res => {
+                    if (res.ok) localStorage.removeItem('moodmap_pending_consent')
+                }).catch(() => { /* retried by AuthProvider on next sign-in */ })
+            }
+
             // Countdown then redirect to dashboard
             const interval = setInterval(() => {
                 setCountdown(prev => {

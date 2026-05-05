@@ -74,7 +74,7 @@ export const useAuth = () => useContext(AuthContext)
 async function applyPendingConsent(session: Session): Promise<void> {
     if (localStorage.getItem('moodmap_pending_consent') !== 'true') return
     try {
-        await fetch('/api/v1/account/consent', {
+        const res = await fetch('/api/v1/account/consent', {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${session.access_token}`,
@@ -82,8 +82,13 @@ async function applyPendingConsent(session: Session): Promise<void> {
             },
             body: JSON.stringify({ consent_given: true }),
         })
-        localStorage.removeItem('moodmap_pending_consent')
+        // Only clear the pending flag when the backend confirmed it — if the
+        // request fails (network blip, cold-start 503, etc.) we keep the flag
+        // so the next SIGNED_IN event retries rather than silently losing it.
+        if (res.ok) {
+            localStorage.removeItem('moodmap_pending_consent')
+        }
     } catch {
-        // Non-fatal — user can re-enable consent in Account Settings
+        // Network error — keep flag, retry on next SIGNED_IN
     }
 }
