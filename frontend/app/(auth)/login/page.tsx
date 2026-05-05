@@ -2,7 +2,6 @@
 
 import { supabase } from "@/lib/supabase"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export default function LoginPage() {
@@ -10,7 +9,6 @@ export default function LoginPage() {
     const [password, setPassword] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const router = useRouter()
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -30,7 +28,7 @@ export default function LoginPage() {
             return
         }
 
-        router.push('/dashboard')
+        window.location.href = '/dashboard'
     }
 
     return (
