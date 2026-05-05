@@ -14,7 +14,9 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
-RUN pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels -r requirements.txt
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels \
+    --timeout 120 --retries 5 \
+    -r requirements.txt
 
 
 # STAGE 2: Runner
