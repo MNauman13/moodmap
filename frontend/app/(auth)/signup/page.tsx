@@ -37,6 +37,14 @@ export default function SignUp() {
             return
         }
 
+        // Supabase silently fakes success for existing emails (anti-enumeration).
+        // An empty identities array is the reliable signal that the email is taken.
+        if (data.user && data.user.identities && data.user.identities.length === 0) {
+            setError("An account with this email already exists. Please log in instead.")
+            setIsLoading(false)
+            return
+        }
+
         // Record explicit consent immediately after account creation.
         // The session may not be fully established yet (email confirmation pending),
         // so we store the intent in localStorage and apply it on first login via AuthProvider.
