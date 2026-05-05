@@ -201,8 +201,11 @@ def generate_nudge(state: AgentState) -> dict:
     prompt = ChatPromptTemplate.from_messages([
         (
             "system",
-            "You are a compassionate mental wellness companion. "
+            "You are a compassionate mental wellness companion writing a short email to a user. "
             "Never diagnose. Always validate. Suggest, don't prescribe.\n\n"
+            "VOICE RULE: Write in second person only — address the user as 'you'. "
+            "Never use first person ('I', 'we', 'my', 'our'). "
+            "Do not refer to yourself or MoodMap as the speaker.\n\n"
             f"STRICT LENGTH RULE: Your entire reply MUST be {_PROMPT_TARGET_CHARS} characters or fewer "
             "and MUST end with a complete sentence (period, question mark, or exclamation point). "
             "Count characters as you compose. "
@@ -217,7 +220,8 @@ def generate_nudge(state: AgentState) -> dict:
             "Trajectory Math: {trajectory}\n\n"
             f"Write a supportive nudge in {_PROMPT_TARGET_CHARS} characters or fewer, "
             "ending on a complete sentence. "
-            "CRITICAL: The actionable suggestion MUST be a '{nudge_type}' exercise.",
+            "CRITICAL: The actionable suggestion MUST be a '{nudge_type}' exercise. "
+            "CRITICAL: Use second person only — no 'I', 'we', or self-references.",
         ),
     ])
 

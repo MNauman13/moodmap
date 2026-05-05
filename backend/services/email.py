@@ -90,7 +90,7 @@ def _email_shell(title: str, preheader: str, body_html: str) -> str:
                   <td style="border-bottom:1px solid {_BORDER};padding-bottom:20px;">
                     <span style="font-family:{_FONT_SERIF};font-size:20px;font-weight:400;
                                  color:{_TEXT_HI};letter-spacing:0.01em;">Mood<span
-                      style="font-style:italic;color:{_GOLD};">Map</span></span>
+                      style="color:{_GOLD};">Map</span></span>
                   </td>
                 </tr>
               </table>
@@ -179,27 +179,13 @@ def send_nudge_email(to_email: str, nudge_content: str) -> bool:
             </td>
           </tr>
 
-          <!-- Nudge quote card -->
+          <!-- Nudge body -->
           <tr>
             <td style="padding-bottom:32px;">
-              <!--[if mso]>
-              <table cellpadding="0" cellspacing="0" border="0" width="100%">
-                <tr><td bgcolor="{_BG_CARD}" style="padding:24px 28px;">
-              <![endif]-->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td bgcolor="{_BG_CARD}"
-                      style="background-color:{_BG_CARD};border:1px solid {_BORDER};
-                             border-left:3px solid {_GOLD};border-radius:8px;
-                             padding:24px 28px;">
-                    <p style="margin:0;font-family:{_FONT_SERIF};font-size:16px;font-style:italic;
-                               font-weight:400;color:{_TEXT_BODY};line-height:1.85;">
-                      {nudge_content}
-                    </p>
-                  </td>
-                </tr>
-              </table>
-              <!--[if mso]></td></tr></table><![endif]-->
+              <p style="margin:0;font-family:{_FONT_SANS};font-size:14px;font-weight:300;
+                        color:{_TEXT_BODY};line-height:1.85;">
+                {nudge_content}
+              </p>
             </td>
           </tr>
 
