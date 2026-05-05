@@ -231,11 +231,11 @@ def send_nudge(state: AgentState) -> dict:
     logger.info("Saving nudge to database...")
 
     with SyncSessionLocal() as db:
-        # Guard: only send one nudge per user per 24 hours to avoid email spam
-        yesterday = datetime.now(timezone.utc) - timedelta(hours=24)
+        # Guard: only send one nudge per user per 6 hours to avoid email spam
+        six_hours_ago = datetime.now(timezone.utc) - timedelta(hours=6)
         recent_nudge = db.query(Nudge).filter(
             Nudge.user_id == uuid.UUID(state["user_id"]),
-            Nudge.sent_at >= yesterday,
+            Nudge.sent_at >= six_hours_ago,
         ).first()
         if recent_nudge:
             logger.info(

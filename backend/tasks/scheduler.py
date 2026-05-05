@@ -44,11 +44,11 @@ def run_immediate_crisis_nudge(user_id: str):
         notifications_on: bool = True
 
         with SyncSessionLocal() as db:
-            # Respect the 24-hour cooldown so we never double-send
-            yesterday = datetime.now(timezone.utc) - timedelta(hours=24)
+            # Respect the 6-hour cooldown so we never double-send
+            six_hours_ago = datetime.now(timezone.utc) - timedelta(hours=6)
             recent = db.query(Nudge).filter(
                 Nudge.user_id == user_uuid,
-                Nudge.sent_at >= yesterday,
+                Nudge.sent_at >= six_hours_ago,
             ).first()
             if recent:
                 logger.info("Crisis nudge skipped for %s — cooldown active", user_id)
