@@ -30,7 +30,7 @@ _CRISIS_KEYWORDS = {
     "life isn't worth", "no way out", "give up on life",
 }
 
-_IMMEDIATE_DISTRESS_THRESHOLD = -0.75  # trigger immediate agent below this score
+_IMMEDIATE_DISTRESS_THRESHOLD = -0.30  # trigger immediate agent check below this score
 
 
 def _contains_crisis(text: str) -> bool:
