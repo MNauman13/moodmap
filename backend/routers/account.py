@@ -10,10 +10,12 @@ GDPR obligations covered here:
 """
 
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
@@ -211,15 +213,12 @@ async def delete_account(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    """Hard-delete every row tied to the user plus their R2 audio objects.
+    """Hard-delete every row tied to the user plus their R2 audio objects,
+    then remove the Supabase auth record via the Admin API.
 
     The agent_states FK now has ondelete='CASCADE' (migration c3d4e5f6a7b8),
     so the raw DELETE on user_profiles cascades to all child tables at the
     database level without needing ORM-level session management.
-
-    The Supabase auth user is NOT deleted here — that requires the service-role
-    key and should be handled by the client via supabase.auth.admin.deleteUser,
-    or by the user through Supabase's hosted account portal.
     """
     user_uuid = uuid.UUID(current_user.user_id)
 
@@ -249,6 +248,39 @@ async def delete_account(
         cache_delete_pattern(f"dashboard:{current_user.user_id}*")
     except Exception as e:
         logger.warning("Cache invalidation after account delete failed: %s", e)
+
+    # Remove the Supabase auth user — requires the service-role key.
+    # Best-effort: a failure here is logged but does NOT roll back the DB
+    # delete, because the user's data is already gone and the orphaned auth
+    # row is harmless (no profile to log into).
+    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    if supabase_url and supabase_service_key:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.delete(
+                    f"{supabase_url}/auth/v1/admin/users/{current_user.user_id}",
+                    headers={
+                        "apikey": supabase_service_key,
+                        "Authorization": f"Bearer {supabase_service_key}",
+                    },
+                )
+                if resp.status_code in (200, 204):
+                    logger.info("Supabase auth user deleted for %s", current_user.user_id)
+                else:
+                    logger.warning(
+                        "Supabase auth delete returned %s for user %s: %s",
+                        resp.status_code, current_user.user_id, resp.text,
+                    )
+        except Exception as e:
+            logger.error(
+                "Failed to delete Supabase auth user %s: %s", current_user.user_id, e
+            )
+    else:
+        logger.warning(
+            "SUPABASE_SERVICE_ROLE_KEY not configured — auth user not deleted for %s",
+            current_user.user_id,
+        )
 
     logger.info("Account deleted for user %s", current_user.user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
