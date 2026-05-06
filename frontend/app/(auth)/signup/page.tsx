@@ -68,8 +68,8 @@ export default function SignUp() {
                         We&apos;ve sent a confirmation link to <span className="text-[#a09080]">{email}</span>.
                         Click it to verify your account — you&apos;ll be signed in automatically and taken to your dashboard.
                     </p>
-                    <Link href="/login" className="text-[13px] text-[#c8a96e] hover:underline underline-offset-4 no-underline">
-                        Back to login →
+                    <Link href="/" className="text-[13px] text-[#c8a96e] hover:underline underline-offset-4 no-underline">
+                        Back to home →
                     </Link>
                 </div>
             </div>
