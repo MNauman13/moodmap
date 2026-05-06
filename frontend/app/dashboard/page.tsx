@@ -271,7 +271,7 @@ export default function DashboardPage() {
                   <div>
                     <p className="text-[13px] text-[#c8bfb0] font-light leading-relaxed">
                       <span className="font-normal">Data processing consent not given.</span>{" "}
-                      MoodMap needs your consent to analyse journal entries and generate mood insights.
+                      MoodMap needs your consent to analyse journal entries and track mood patterns.
                       Without it, new entries cannot be processed.
                     </p>
                   </div>

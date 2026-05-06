@@ -309,7 +309,7 @@ export default function AccountPage() {
           <Section title="Download your data" delay={0.15}>
             <p className="text-[13px] text-[#8a8070] font-light leading-relaxed mb-4">
               Download a copy of everything MoodMap holds for you — journal entries, mood scores,
-              AI insights, and account details — as a JSON file. This satisfies your right of
+              nudges, and account details — as a JSON file. This satisfies your right of
               access (Art. 15) and data portability (Art. 20).
             </p>
             <button

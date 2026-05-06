@@ -9,7 +9,7 @@ import Logo from "./Logo"
 const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/journal",   label: "Journal" },
-  { href: "/nudges",    label: "Insights" },
+  { href: "/nudges",    label: "Nudges" },
   { href: "/account",   label: "Account" },
 ]
 

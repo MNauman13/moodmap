@@ -101,7 +101,7 @@ const STEPS = [
 const MARQUEE_ITEMS = [
   'Voice journaling', 'Emotion tracking', 'Mood heatmap', 'Crisis support',
   'Personalised nudges', 'Trend charts', 'Daily check-ins', 'Secure storage',
-  'UK helplines', 'Smart insights', 'Voice + text', 'Privacy first',
+  'UK helplines', 'Proactive nudges', 'Voice + text', 'Privacy first',
 ]
 
 // ── Sub-components ─────────────────────────────────────────────

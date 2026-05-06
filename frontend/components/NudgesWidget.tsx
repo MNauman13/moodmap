@@ -48,7 +48,7 @@ export default function NudgesWidget() {
         return (
             <div className="flex items-center justify-between rounded-xl border border-[#1a1815] bg-[#0c0b09] p-5">
                 <div>
-                    <h3 className="font-['Lora'] text-[16px] text-[#c8bfb0]">Insights caught up</h3>
+                    <h3 className="font-['Lora'] text-[16px] text-[#c8bfb0]">All caught up</h3>
                     <p className="text-[12px] font-light text-[#6b6357] mt-1">Keep journaling to generate new AI interventions.</p>
                 </div>
                 <Link href="/nudges" className="text-[12px] text-[#c8a96e] hover:text-[#e8e4dc] transition-colors">
@@ -72,7 +72,7 @@ export default function NudgesWidget() {
                               <span className="relative inline-flex h-2 w-2 rounded-full bg-[#c8a96e]"></span>
                             </span>
                             <span className="text-[12px] font-medium uppercase tracking-wider text-[#c8a96e]">
-                                New Insight
+                                New Nudge
                             </span>
                         </div>
                         {remainingCount > 1 && (
