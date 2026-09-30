@@ -200,12 +200,10 @@ export default function JournalPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap');
-
         body {
           background: #0e0d0b;
           color: #e8e4dc;
-          font-family: 'DM Sans', sans-serif;
+          font-family: var(--font-dm-sans), sans-serif;
           min-height: 100vh;
         }
 
@@ -231,11 +229,11 @@ export default function JournalPage() {
           text-transform: uppercase;
           color: #8a8070;
           margin-bottom: 0.6rem;
-          font-family: 'DM Sans', sans-serif;
+          font-family: var(--font-dm-sans), sans-serif;
           font-weight: 300;
         }
         .page-title {
-          font-family: 'Lora', serif;
+          font-family: var(--font-lora), Georgia, serif;
           font-size: clamp(28px, 5vw, 42px);
           font-weight: 400;
           color: #f0ece2;
@@ -274,7 +272,7 @@ export default function JournalPage() {
           border: none;
           border-bottom: 1px solid #2a2720;
           color: #e8e4dc;
-          font-family: 'Lora', serif;
+          font-family: var(--font-lora), Georgia, serif;
           font-size: 18px;
           font-weight: 400;
           line-height: 1.8;
@@ -309,7 +307,7 @@ export default function JournalPage() {
           letter-spacing: 0.14em;
           text-transform: uppercase;
           color: #8a8070;
-          font-family: 'DM Sans', sans-serif;
+          font-family: var(--font-dm-sans), system-ui, sans-serif;
           font-weight: 400;
           margin-bottom: 1rem;
         }
@@ -330,7 +328,7 @@ export default function JournalPage() {
           border: 1px solid #2a2720;
           background: transparent;
           color: #6b6357;
-          font-family: 'DM Sans', sans-serif;
+          font-family: var(--font-dm-sans), system-ui, sans-serif;
           font-size: 13px;
           font-weight: 300;
           cursor: pointer;
@@ -434,7 +432,7 @@ export default function JournalPage() {
           font-weight: 400;
         }
         .timer-text {
-          font-family: 'DM Sans', sans-serif;
+          font-family: var(--font-dm-sans), system-ui, sans-serif;
           font-size: 13px;
           color: #c8a96e;
           font-weight: 400;
@@ -444,7 +442,7 @@ export default function JournalPage() {
           background: none;
           border: none;
           color: #6b6357;
-          font-family: 'DM Sans', sans-serif;
+          font-family: var(--font-dm-sans), system-ui, sans-serif;
           font-size: 12px;
           cursor: pointer;
           padding: 4px 8px;
@@ -495,7 +493,7 @@ export default function JournalPage() {
           padding: 14px 32px;
           background: #c8a96e;
           color: #0e0d0b;
-          font-family: 'DM Sans', sans-serif;
+          font-family: var(--font-dm-sans), system-ui, sans-serif;
           font-size: 14px;
           font-weight: 500;
           border: none;
@@ -545,7 +543,7 @@ export default function JournalPage() {
           font-size: 28px;
         }
         .success-text {
-          font-family: 'Lora', serif;
+          font-family: var(--font-lora), Georgia, serif;
           font-size: 22px;
           color: #e8e4dc;
           font-style: italic;

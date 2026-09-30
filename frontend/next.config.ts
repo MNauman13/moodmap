@@ -52,7 +52,7 @@ const nextConfig: NextConfig = {
           },
 
           // Content-Security-Policy
-          // Allows: same-origin scripts/styles, Supabase API, Google Fonts,
+          // Allows: same-origin scripts/styles and Supabase API,
           // self-hosted images + data URIs (chart canvases), WebSockets for
           // Supabase realtime. Tighten further once all CDN sources are known.
           {
@@ -61,10 +61,10 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               // Scripts: self + inline (React hydration) + Supabase
               "script-src 'self' 'unsafe-inline' https://*.supabase.co",
-              // Styles: self + inline (Tailwind runtime) + Google Fonts
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              // Fonts: self + Google Fonts CDN
-              "font-src 'self' https://fonts.gstatic.com",
+              // Styles: self + inline (Tailwind runtime)
+              "style-src 'self' 'unsafe-inline'",
+              // Fonts are self-hosted with next/font/local.
+              "font-src 'self'",
               // Images: self + data URIs (chart exports) + blob (audio waveform)
               "img-src 'self' data: blob:",
               // Connections: self + Supabase API + realtime WebSocket

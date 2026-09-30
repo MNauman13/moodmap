@@ -36,7 +36,7 @@ export default function LoginPage() {
             <div className="w-full max-w-md rounded-2xl border border-[#1a1815] bg-[#0c0b09] p-8 shadow-2xl">
 
                 <div className="mb-8 text-center">
-                    <h2 className="font-['Lora'] text-3xl text-[#c8bfb0] mb-2">
+                    <h2 className="font-serif text-3xl text-[#c8bfb0] mb-2">
                         Welcome Back
                     </h2>
                     <p className="text-[13px] font-light text-[#6b6357]">

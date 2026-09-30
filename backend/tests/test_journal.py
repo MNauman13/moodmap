@@ -30,8 +30,8 @@ async def test_create_journal_entry_success(client, db_session, mock_user_id):
         "mood_tags": ["happy", "focused"]
     }
 
-    # 1. THE MOCK: We intercept the Celery .delay() function
-    with patch('backend.routers.journal.analyze_entry.delay') as mock_celery_task:
+    # 1. THE MOCK: We intercept the Celery send_task() call
+    with patch('backend.routers.journal._celery_app.send_task') as mock_celery_task:
         
         # We also need to give the fake task a fake ID so the router doesn't crash
         mock_celery_task.return_value.id = "fake-celery-task-id-123"
@@ -59,5 +59,8 @@ async def test_create_journal_entry_success(client, db_session, mock_user_id):
         assert decrypt(saved_entry.raw_text) == payload["text"]  # decrypts correctly
         assert saved_entry.word_count == 10 # "Today was a remarkably good day. I felt very productive."
         
-        # Verify the Celery task was actually called with the correct database ID!
-        mock_celery_task.assert_called_once_with(str(saved_entry.id))
+        # Verify the Celery task name and database ID were queued correctly.
+        mock_celery_task.assert_called_once_with(
+            "backend.tasks.analysis.analyze_entry",
+            args=[str(saved_entry.id)],
+        )

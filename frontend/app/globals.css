@@ -9,8 +9,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Default Tailwind font utilities now resolve to the brand fonts loaded
-     in app/layout.tsx via next/font. font-sans → DM Sans, font-serif → Lora.
+  /* Default Tailwind font utilities now resolve to the self-hosted brand fonts
+     loaded in app/layout.tsx. font-sans → DM Sans, font-serif → Lora.
      We also expose --font-lora explicitly for `font-[family:var(--font-lora)]` callsites. */
   --font-sans: var(--font-dm-sans);
   --font-serif: var(--font-lora);

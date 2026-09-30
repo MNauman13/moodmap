@@ -1,23 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Lora, DM_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
 
-// Loading the brand fonts here (rather than via runtime <style>@import</style>
-// inside individual pages) eliminates the render-blocking network request
-// and makes 'Lora' / 'DM Sans' available to the global Navbar + Logo.
-const lora = Lora({
+// Self-host the Latin font files so builds don't depend on Google Fonts being
+// reachable, and so every page uses the same font definitions.
+const lora = localFont({
+  src: [
+    { path: "./fonts/lora-latin.woff2", weight: "400 500", style: "normal" },
+    { path: "./fonts/lora-latin-italic.woff2", weight: "400 500", style: "italic" },
+  ],
   variable: "--font-lora",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  style: ["normal", "italic"],
   display: "swap",
 });
 
-const dmSans = DM_Sans({
+const dmSans = localFont({
+  src: "./fonts/dm-sans-latin.woff2",
   variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
+  weight: "300 500",
   display: "swap",
 });
 

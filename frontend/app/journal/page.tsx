@@ -96,7 +96,7 @@ export default function JournalListPage() {
                 Your entries
               </p>
               <h1
-                style={{ fontFamily: "var(--font-lora), 'Lora', serif" }}
+                style={{ fontFamily: "var(--font-lora), var(--font-lora), Georgia, serif" }}
                 className="text-[32px] font-normal text-[#f0ece2] leading-tight"
               >
                 Journal

@@ -101,7 +101,7 @@ export default function MoodHeatmap({ data, loading }: Props) {
 
   return (
     <div className="bg-[#0c0b09] border border-[#1a1815] rounded-xl p-6">
-      <p className="font-['Lora'] text-[15px] text-[#c8bfb0] mb-1">8-week calendar</p>
+      <p className="font-serif text-[15px] text-[#c8bfb0] mb-1">8-week calendar</p>
       <p className="text-[12px] text-[#6b6357] font-light mb-5">
         Each square is one day — hover to see your score
       </p>

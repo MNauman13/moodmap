@@ -1,7 +1,7 @@
 import pytest
 import uuid
 from datetime import datetime, timedelta, timezone
-from backend.models.db_models import MoodScore
+from backend.models.db_models import JournalEntry, MoodScore, UserProfile
 
 @pytest.mark.asyncio
 async def test_get_user_insights(client, db_session, mock_user_id):
@@ -10,6 +10,14 @@ async def test_get_user_insights(client, db_session, mock_user_id):
     from the same day and formats them for the frontend charts.
     """
     user_uuid = uuid.UUID(mock_user_id)
+    profile = UserProfile(id=user_uuid, email=f"{mock_user_id}@example.com", consent_given=True)
+    entries = [
+        JournalEntry(user_id=user_uuid, raw_text="test entry")
+        for _ in range(3)
+    ]
+    db_session.add(profile)
+    db_session.add_all(entries)
+    await db_session.flush()
     
     # Grab today, but force the clock to exactly 12:00 PM (Noon)
     # This prevents the test from accidentally crossing midnight boundaries!
@@ -18,11 +26,11 @@ async def test_get_user_insights(client, db_session, mock_user_id):
     
     # 1. SEED THE DATABASE
     # Score 1 at 12:00 PM
-    score1 = MoodScore(user_id=user_uuid, time=today_noon, fused_score=0.8, dominant_emotion="joy")
+    score1 = MoodScore(entry_id=entries[0].id, user_id=user_uuid, time=today_noon, fused_score=0.8, dominant_emotion="joy")
     # Score 2 at 1:00 PM (Same day, different time -> No Unique Constraint Error!)
-    score2 = MoodScore(user_id=user_uuid, time=today_noon + timedelta(hours=1), fused_score=0.4, dominant_emotion="joy")
+    score2 = MoodScore(entry_id=entries[1].id, user_id=user_uuid, time=today_noon + timedelta(hours=1), fused_score=0.4, dominant_emotion="joy")
     # Score 3 at 12:00 PM Yesterday
-    score3 = MoodScore(user_id=user_uuid, time=today_noon - timedelta(days=1), fused_score=-0.5, dominant_emotion="sadness")
+    score3 = MoodScore(entry_id=entries[2].id, user_id=user_uuid, time=today_noon - timedelta(days=1), fused_score=-0.5, dominant_emotion="sadness")
     
     db_session.add_all([score1, score2, score3])
     await db_session.commit()

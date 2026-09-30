@@ -38,7 +38,7 @@ function MoodTooltip({ active, payload, label }: {
   return (
     <div className="bg-[#141210] border border-[#2a2720] rounded-lg px-3 py-2 shadow-none">
       <p className="text-[11px] text-[#6b6357] mb-1">{formatAxisDate(label)}</p>
-      <p className="font-['Lora'] text-[15px] mb-0.5" style={{ color: meta.color }}>
+      <p className="font-serif text-[15px] mb-0.5" style={{ color: meta.color }}>
         {meta.label}
       </p>
       <p className="text-[11px] text-[#6b6357] tabular-nums">
@@ -80,7 +80,7 @@ export default function MoodTrendChart({ data, loading }: Props) {
 
   return (
     <div className="bg-[#0c0b09] border border-[#1a1815] rounded-xl p-6">
-      <p className="font-['Lora'] text-[15px] text-[#c8bfb0] mb-1">Mood trajectory</p>
+      <p className="font-serif text-[15px] text-[#c8bfb0] mb-1">Mood trajectory</p>
       <p className="text-[12px] text-[#6b6357] font-light mb-5">
         Daily fused score — positive is wellbeing, negative is distress
       </p>

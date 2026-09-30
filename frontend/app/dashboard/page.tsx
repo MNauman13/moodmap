@@ -78,7 +78,7 @@ function StatCell({ label, loading, value, sub, valueColor, barWidth, barColor }
         <Shimmer className="h-[22px] w-20 mt-1" />
       ) : (
         <>
-          <p className="font-['Lora'] text-[22px] leading-none" style={{ color: valueColor ?? "#e8e4dc" }}>
+          <p className="font-serif text-[22px] leading-none" style={{ color: valueColor ?? "#e8e4dc" }}>
             {value}
           </p>
           <p className="text-[11px] text-[#8a8070] font-light mt-1">{sub}</p>

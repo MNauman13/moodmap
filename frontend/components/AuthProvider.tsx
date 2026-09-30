@@ -48,7 +48,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             <div className="flex min-h-screen items-center justify-center bg-[#0e0d0b]">
                 <div className="flex flex-col items-center gap-4">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#1a1815] border-t-[#c8a96e]"></div>
-                    <p className="font-['Lora'] text-[13px] text-[#6b6357] animate-pulse">
+                    <p className="font-serif text-[13px] text-[#6b6357] animate-pulse">
                         Authenticating...
                     </p>
                 </div>

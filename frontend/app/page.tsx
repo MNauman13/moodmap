@@ -232,7 +232,7 @@ function StatCard({ value, suffix, prefix = '', label, source, active }: {
     >
       <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
         style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(200,169,110,0.06) 0%, transparent 70%)' }} />
-      <p className="font-['Lora'] text-[40px] font-medium leading-none text-[#c8a96e] tabular-nums">
+      <p className="font-serif text-[40px] font-medium leading-none text-[#c8a96e] tabular-nums">
         {prefix}{count}{suffix}
       </p>
       <p className="mt-3 text-[14px] font-light leading-relaxed text-[#8a8070]">{label}</p>
@@ -268,7 +268,7 @@ function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc:
       <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl border border-[#2a2720] bg-[#141210] text-[22px] transition-all duration-300 group-hover:border-[#c8a96e]/40">
         {icon}
       </div>
-      <h3 className="font-['Lora'] text-[17px] font-medium text-[#c8bfb0] mb-2">{title}</h3>
+      <h3 className="font-serif text-[17px] font-medium text-[#c8bfb0] mb-2">{title}</h3>
       <p className="text-[13px] font-light leading-relaxed text-[#6b6357]">{desc}</p>
     </motion.div>
   )
@@ -325,7 +325,7 @@ function MockDashboard() {
         ].map((s) => (
           <div key={s.label} className="rounded-lg bg-[#0e0d0b] px-3 py-3 border border-[#141210]">
             <p className="text-[9px] uppercase tracking-wider text-[#3a3428] mb-1">{s.label}</p>
-            <p className="font-['Lora'] text-[14px]" style={{ color: s.color }}>{s.val}</p>
+            <p className="font-serif text-[14px]" style={{ color: s.color }}>{s.val}</p>
           </div>
         ))}
       </div>
@@ -374,7 +374,7 @@ function MockDashboard() {
         {entries.map((e, i) => (
           <div key={i} className="flex items-center justify-between py-2.5 border-b border-[#141210] last:border-0">
             <div>
-              <p className="font-['Lora'] text-[12px] text-[#8a8070] truncate max-w-[260px]">{e.text}</p>
+              <p className="font-serif text-[12px] text-[#8a8070] truncate max-w-[260px]">{e.text}</p>
               <p className="text-[10px] text-[#3a3428] mt-0.5">{e.ago}</p>
             </div>
             <span className="text-[11px] font-medium" style={{ color: e.color }}>{e.score}</span>
@@ -436,7 +436,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="font-['Lora'] text-[clamp(42px,7vw,80px)] font-normal leading-[1.1] tracking-tight text-[#f0ece2]"
+            className="font-serif text-[clamp(42px,7vw,80px)] font-normal leading-[1.1] tracking-tight text-[#f0ece2]"
           >
             Your emotions,{' '}
             <em
@@ -538,7 +538,7 @@ export default function LandingPage() {
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, amount: 0.3 }}
-          className="font-['Lora'] text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] mb-12 max-w-2xl"
+          className="font-serif text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] mb-12 max-w-2xl"
         >
           Mental health affects everyone.<br />
           <em className="text-[#c8a96e]">Most people suffer in silence.</em>
@@ -568,7 +568,7 @@ export default function LandingPage() {
             viewport={{ once: true, amount: 0.3 }}
           >
             <span className="text-[11px] uppercase tracking-[0.14em] text-[#6b6357]">How it works</span>
-            <h2 className="font-['Lora'] mt-3 text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] mb-12">
+            <h2 className="font-serif mt-3 text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] mb-12">
               Three steps to clarity.
             </h2>
           </motion.div>
@@ -584,10 +584,10 @@ export default function LandingPage() {
                 transition={{ delay: i * 0.15 }}
                 className="relative"
               >
-                <span className="font-['Lora'] text-[48px] font-normal leading-none select-none" style={{ color: 'rgba(200,169,110,0.25)' }}>
+                <span className="font-serif text-[48px] font-normal leading-none select-none" style={{ color: 'rgba(200,169,110,0.25)' }}>
                   {step.n}
                 </span>
-                <h3 className="font-['Lora'] text-[20px] font-medium text-[#c8bfb0] mt-4 mb-3">{step.title}</h3>
+                <h3 className="font-serif text-[20px] font-medium text-[#c8bfb0] mt-4 mb-3">{step.title}</h3>
                 <p className="text-[14px] font-light leading-relaxed text-[#6b6357]">{step.desc}</p>
               </motion.div>
             ))}
@@ -605,7 +605,7 @@ export default function LandingPage() {
           className="mb-12"
         >
           <span className="text-[11px] uppercase tracking-[0.14em] text-[#6b6357]">Features</span>
-          <h2 className="font-['Lora'] mt-3 text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] max-w-xl">
+          <h2 className="font-serif mt-3 text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2] max-w-xl">
             Everything your emotional life deserves.
           </h2>
         </motion.div>
@@ -632,7 +632,7 @@ export default function LandingPage() {
             className="mb-12 text-center"
           >
             <span className="text-[11px] uppercase tracking-[0.14em] text-[#6b6357]">See it in action</span>
-            <h2 className="font-['Lora'] mt-3 text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2]">
+            <h2 className="font-serif mt-3 text-[clamp(28px,4vw,44px)] font-normal text-[#f0ece2]">
               Your emotional landscape, visualised.
             </h2>
             <p className="mt-4 text-[15px] font-light text-[#6b6357] max-w-lg mx-auto">
@@ -663,7 +663,7 @@ export default function LandingPage() {
           <div>
             <motion.div variants={fadeUp}>
               <span className="text-[11px] uppercase tracking-[0.14em] text-[#6b6357]">Privacy</span>
-              <h2 className="font-['Lora'] mt-3 text-[clamp(28px,4vw,40px)] font-normal text-[#f0ece2] mb-6">
+              <h2 className="font-serif mt-3 text-[clamp(28px,4vw,40px)] font-normal text-[#f0ece2] mb-6">
                 Your story.<br />
                 <em className="text-[#c8a96e]">Only yours.</em>
               </h2>
@@ -712,7 +712,7 @@ export default function LandingPage() {
           viewport={{ once: true, amount: 0.4 }}
           className="relative z-10 mx-auto max-w-xl px-6"
         >
-          <h2 className="font-['Lora'] text-[clamp(32px,5vw,52px)] font-normal leading-tight text-[#f0ece2] mb-6">
+          <h2 className="font-serif text-[clamp(32px,5vw,52px)] font-normal leading-tight text-[#f0ece2] mb-6">
             Ready to understand yourself better?
           </h2>
           <p className="text-[16px] font-light text-[#6b6357] mb-10">

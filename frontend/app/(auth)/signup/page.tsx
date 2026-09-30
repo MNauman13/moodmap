@@ -63,7 +63,7 @@ export default function SignUp() {
                     <div className="w-14 h-14 rounded-full border border-[#c8a96e] flex items-center justify-center mx-auto mb-6 text-[#c8a96e] text-2xl">
                         ✉
                     </div>
-                    <h2 className="font-['Lora'] text-2xl text-[#c8bfb0] mb-3">Check your inbox</h2>
+                    <h2 className="font-serif text-2xl text-[#c8bfb0] mb-3">Check your inbox</h2>
                     <p className="text-[13px] text-[#6b6357] leading-relaxed mb-6">
                         We&apos;ve sent a confirmation link to <span className="text-[#a09080]">{email}</span>.
                         Click it to verify your account — you&apos;ll be signed in automatically and taken to your dashboard.
@@ -81,7 +81,7 @@ export default function SignUp() {
             <div className="w-full max-w-md rounded-2xl border border-[#1a1815] bg-[#0c0b09] p-8 shadow-2xl">
 
                 <div className="mb-8 text-center">
-                    <h2 className="font-['Lora'] text-3xl text-[#c8bfb0] mb-2">
+                    <h2 className="font-serif text-3xl text-[#c8bfb0] mb-2">
                         Join MoodMap
                     </h2>
                     <p className="text-[13px] font-light text-[#6b6357]">

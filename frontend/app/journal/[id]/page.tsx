@@ -136,7 +136,7 @@ export default function JournalEntryPage() {
   const d = new Date(entry.created_at)
 
   return (
-    <div className="min-h-screen bg-[#0e0d0b] text-[#e8e4dc]" style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#0e0d0b] text-[#e8e4dc]" style={{ fontFamily: "var(--font-dm-sans), var(--font-dm-sans), system-ui, sans-serif" }}>
       <Navbar />
       <div className="grid px-5" style={{ gridTemplateColumns: "1fr min(720px, 100%) 1fr" }}>
         <div className="col-start-2 py-12 pb-24">
@@ -201,12 +201,12 @@ export default function JournalEntryPage() {
           >
             <div
               className="rounded-xl border border-[#1a1815] bg-[#0c0b09] px-8 py-8"
-              style={{ fontFamily: "'Lora', serif" }}
+              style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
             >
               <p className="text-[16px] leading-[1.85] text-[#c8bfb0] whitespace-pre-wrap">
                 {entry.text}
               </p>
-              <p className="mt-5 text-[11px] text-[#6b6357] font-light" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <p className="mt-5 text-[11px] text-[#6b6357] font-light" style={{ fontFamily: "var(--font-dm-sans), system-ui, sans-serif" }}>
                 {entry.word_count} words
               </p>
             </div>
@@ -265,7 +265,7 @@ export default function JournalEntryPage() {
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-[#6b6357] mb-1">Overall mood</p>
                     <p
-                      className="font-['Lora'] text-[28px] leading-none"
+                      className="font-serif text-[28px] leading-none"
                       style={{ color: scoreColor }}
                     >
                       {scoreLabel}

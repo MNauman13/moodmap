@@ -55,9 +55,9 @@ Sensitive text fields (journal content, nudge content) use a custom `EncryptedSt
 
 PyTorch accumulates fragmented memory across inference calls. Rather than patching this in Python, the Celery worker in [`docker-compose.prod.yml`](docker-compose.prod.yml) is configured with `--max-tasks-per-child=50`. After 50 tasks the worker process is recycled and all allocations are flushed. The ML models are lazy-loaded on first use, so the recycled worker pays the load cost once on its first task.
 
-### Next.js font loading with `next/font/google`
+### Self-hosted fonts with `next/font/local`
 
-Fonts are loaded in [`frontend/app/layout.tsx`](frontend/app/layout.tsx) via `next/font/google` rather than a CSS `@import` or a `<link>` tag. Next.js downloads the font files at build time, self-hosts them alongside the app, and exposes each family as a CSS custom property (`--font-lora`, `--font-dm-sans`). The [`font-display: swap`](https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display) descriptor keeps text visible during the load.
+Lora and DM Sans are stored in [`frontend/app/fonts`](frontend/app/fonts) and loaded through `next/font/local`, so production builds do not need to reach Google Fonts. Next.js self-hosts them alongside the app and exposes each family as a CSS custom property (`--font-lora`, `--font-dm-sans`). The [`font-display: swap`](https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display) descriptor keeps text visible during the load. Font license notices are included with the assets.
 
 ### Security headers declared in `next.config.ts`
 
@@ -91,7 +91,7 @@ Voice entries use the [MediaRecorder API](https://developer.mozilla.org/en-US/do
 
 **[Alembic](https://alembic.sqlalchemy.org/)** — SQLAlchemy's migration tool. Each schema change is a versioned upgrade/downgrade Python file in [`backend/alembic/versions/`](backend/alembic/versions/). The migration chain is the source of truth for database structure.
 
-**Fonts: [Lora](https://fonts.google.com/specimen/Lora) and [DM Sans](https://fonts.google.com/specimen/DM+Sans)** — Both loaded via `next/font/google`. Lora (a contemporary serif) is used for editorial headings and journal content. DM Sans (a geometric low-contrast sans) is the UI typeface.
+**Fonts: [Lora](https://fonts.google.com/specimen/Lora) and [DM Sans](https://fonts.google.com/specimen/DM+Sans)** — Both are self-hosted with `next/font/local`. Lora (a contemporary serif) is used for editorial headings and journal content. DM Sans (a geometric low-contrast sans) is the UI typeface.
 
 ---
 

@@ -73,7 +73,7 @@ export default function EmotionBreakdown({ data, loading }: Props) {
 
   return (
     <div className="bg-[#0c0b09] border border-[#1a1815] rounded-xl p-6">
-      <p className="font-['Lora'] text-[15px] text-[#c8bfb0] mb-1">Emotion mix</p>
+      <p className="font-serif text-[15px] text-[#c8bfb0] mb-1">Emotion mix</p>
       <p className="text-[12px] text-[#6b6357] font-light mb-5">
         Dominant feelings this month
       </p>

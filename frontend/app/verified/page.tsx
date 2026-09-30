@@ -54,7 +54,7 @@ export default function VerifiedPage() {
                     ✓
                 </div>
 
-                <h2 className="font-['Lora'] text-2xl text-[#c8bfb0] mb-3">
+                <h2 className="font-serif text-2xl text-[#c8bfb0] mb-3">
                     Email verified
                 </h2>
                 <p className="text-[13px] text-[#6b6357] leading-relaxed mb-8">
