@@ -21,6 +21,10 @@ VOICE_TO_MOODMAP = {
 
 MOODMAP_EMOTIONS = ["joy", "love", "optimism", "sadness", "anger", "fear", "disgust", "surprise", "neutral"]
 
+# Training clips were truncated to six seconds; keep inference inputs aligned
+# with that length and bound the decoded waveform and HuBERT activations.
+MAX_AUDIO_DURATION_SECONDS = 6.0
+
 HIGH_AROUSAL = {"angry", "fearful", "surprised", "happy"}
 LOW_AROUSAL = {"sad", "neutral", "disgust"}
 
@@ -48,7 +52,11 @@ class VoiceEmotionAnalyzer:
         self._load_model()
 
         try:
-            audio_array, _ = librosa.load(audio_file_path, sr=16000)
+            audio_array, _ = librosa.load(
+                audio_file_path,
+                sr=16000,
+                duration=MAX_AUDIO_DURATION_SECONDS,
+            )
 
             inputs = self.feature_extractor(
                 audio_array,

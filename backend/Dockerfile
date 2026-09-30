@@ -51,4 +51,4 @@ USER appuser
 EXPOSE 8000
 # Shell form so $PORT (injected by Railway) is expanded at runtime.
 # Falls back to 8000 for local docker run without -e PORT.
-CMD uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 4 --loop uvloop --http httptools
+CMD uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --loop uvloop --http httptools
